@@ -1,4 +1,4 @@
-// TODO(ameshkov): rework the tests so that they do not depend on external svcs.
+// Network-dependent tests skip under -short so CI runs without external DNS.
 package resolve_test
 
 import (
@@ -15,6 +15,7 @@ import (
 )
 
 func TestResolver_LookupHost(t *testing.T) {
+	requireNetwork(t)
 	out, err := output.NewOutput("", false, false)
 	require.NoError(t, err)
 
@@ -27,6 +28,7 @@ func TestResolver_LookupHost(t *testing.T) {
 }
 
 func TestResolver_LookupHost_customServers(t *testing.T) {
+	requireNetwork(t)
 	out, err := output.NewOutput("", false, false)
 	require.NoError(t, err)
 
@@ -81,6 +83,7 @@ func TestResolver_LookupHost_preConfigured(t *testing.T) {
 }
 
 func TestResolver_LookupECHConfigs(t *testing.T) {
+	requireNetwork(t)
 	out, err := output.NewOutput("", false, false)
 	require.NoError(t, err)
 
@@ -123,4 +126,12 @@ func TestResolver_LookupECHConfigs_empty(t *testing.T) {
 	echConfigs, err := r.LookupECHConfigs("example.org")
 	require.ErrorIs(t, err, resolve.ErrEmptyResponse)
 	require.Empty(t, echConfigs)
+}
+
+// requireNetwork skips network-dependent tests in short mode.
+func requireNetwork(t *testing.T) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("requires network access")
+	}
 }

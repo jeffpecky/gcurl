@@ -2,25 +2,35 @@
 package websocket
 
 import (
+	"crypto/rand"
+	"crypto/sha1"
+	"encoding/base64"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
 
-	"github.com/jeffpecky/gcurl/internal/output"
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
+	"github.com/jeffpecky/gcurl/internal/output"
 )
 
+// acceptGUID is the RFC 6455 constant appended to the client key before
+// hashing to form Sec-WebSocket-Accept.
+const acceptGUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+
 // NewWebSocket returns an io.ReadWriterCloser that can be used to send and
-// receive data to/from a websocket.
-func NewWebSocket(conn net.Conn, out *output.Output) (rwc io.ReadWriteCloser) {
+// receive data to/from a websocket.  binary selects the Write opcode
+// (OpBinary for --data-binary, OpText otherwise).
+func NewWebSocket(conn net.Conn, out *output.Output, binary bool) (rwc io.ReadWriteCloser) {
 	r := wsutil.NewReader(conn, ws.StateClientSide)
 
-	// TODO(ameshkov): Add support of OpBinary when POSTing binary data is
-	// supported (for now --data is for text data only).
-	w := wsutil.NewWriter(conn, ws.StateClientSide, ws.OpText)
+	op := ws.OpText
+	if binary {
+		op = ws.OpBinary
+	}
+	w := wsutil.NewWriter(conn, ws.StateClientSide, op)
 
 	return &wsConn{
 		conn: conn,
@@ -84,12 +94,36 @@ func (w *wsConn) Close() (err error) {
 }
 
 // IsWebSocketResponse checks if the response is a valid 101 Switching Protocols
-// response and the following data should follow the WebSocket protocol.
+// response and the following data should follow the WebSocket protocol.  When
+// the response echoes Sec-WebSocket-Key it is verified against
+// Sec-WebSocket-Accept per RFC 6455.
 func IsWebSocketResponse(resp *http.Response) (ok bool) {
-	// TODO(ameshkov): validate Sec-Websocket-Accept (see Sec-WebSocket-Key).
-	return resp.StatusCode == http.StatusSwitchingProtocols &&
-		strings.EqualFold(resp.Header.Get("Connection"), "upgrade") &&
-		resp.Header.Get("Sec-Websocket-Accept") != ""
+	if resp.StatusCode != http.StatusSwitchingProtocols ||
+		!strings.EqualFold(resp.Header.Get("Connection"), "upgrade") {
+		return false
+	}
+
+	accept := resp.Header.Get("Sec-Websocket-Accept")
+	if accept == "" {
+		return false
+	}
+
+	key := ""
+	if resp.Request != nil {
+		key = resp.Request.Header.Get("Sec-WebSocket-Key")
+	}
+	if key == "" {
+		return true
+	}
+
+	return accept == acceptKey(key)
+}
+
+// acceptKey derives the Sec-WebSocket-Accept value for a client key.
+func acceptKey(key string) string {
+	h := sha1.Sum([]byte(key + acceptGUID))
+
+	return base64.StdEncoding.EncodeToString(h[:])
 }
 
 // IsWebSocket returns true if the request is to WebSocket.
@@ -119,8 +153,11 @@ func UpgradeWebSocket(r *http.Request) (upgradeReq *http.Request) {
 	upgradeReq.Header.Set("Upgrade", "websocket")
 	upgradeReq.Header.Set("Sec-WebSocket-Version", "13")
 
-	// TODO(ameshkov): randomize Sec-WebSocket-Key instead of hard-coding it.
-	upgradeReq.Header.Set("Sec-WebSocket-Key", "57WURIqFwyL1d/bbcWhttw==")
+	key := make([]byte, 16)
+	// crypto/rand.Read never returns an error (Go 1.24+); a failed read would
+	// have already crashed the process.
+	_, _ = rand.Read(key)
+	upgradeReq.Header.Set("Sec-WebSocket-Key", base64.StdEncoding.EncodeToString(key))
 
 	return upgradeReq
 }

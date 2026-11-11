@@ -40,7 +40,7 @@ func (o *Output) CurlRequest(req *http.Request, headerOrder []string) {
 
 	// Headers in the given wire order first, then whatever else the request
 	// carries (alphabetically — deterministic).
-	seen := map[string]bool{ "host": true }
+	seen := map[string]bool{"host": true}
 	for _, raw := range headerOrder {
 		name, value, _ := strings.Cut(raw, ":")
 		name = strings.TrimSpace(name)

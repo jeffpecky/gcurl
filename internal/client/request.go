@@ -143,9 +143,9 @@ func createBody(cfg *config.Config) (body io.Reader, contentType string, err err
 	return bytes.NewBufferString(data), "", nil
 }
 
-// bodyData returns the effective request body data (--data/--data-raw/
+// BodyData returns the effective request body data (--data/--data-raw/
 // --data-binary).
-func bodyData(cfg *config.Config) (data string) {
+func BodyData(cfg *config.Config) (data string) {
 	if cfg.DataRaw != "" {
 		return cfg.DataRaw
 	}
@@ -160,7 +160,7 @@ func bodyData(cfg *config.Config) (data string) {
 // command-line arguments. For instance, -d/--data requires adding the
 // Content-Type: application/x-www-form-urlencoded header.
 func addBodyHeaders(req *http.Request, cfg *config.Config) {
-	data := bodyData(cfg)
+	data := BodyData(cfg)
 	if data != "" && !websocket.IsWebSocket(cfg.RequestURL) {
 		if req.Header.Get("Content-Type") == "" && cfg.DataBinary == "" {
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -186,6 +186,13 @@ func addBodyHeaders(req *http.Request, cfg *config.Config) {
 			req.Header.Add("Cookie", cookieHeader)
 		}
 	}
+}
+
+// IsBinaryWebSocketData reports whether the WebSocket payload should be sent
+// with the binary opcode rather than text.  --data-binary is binary by
+// definition; --data and --data-raw are text.
+func IsBinaryWebSocketData(cfg *config.Config) bool {
+	return cfg.DataBinary != ""
 }
 
 // parseCookieArg handles -b/--cookie: if the argument looks like a file

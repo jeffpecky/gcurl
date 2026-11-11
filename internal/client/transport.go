@@ -46,14 +46,18 @@ func (t *transport) Conn() (conn net.Conn) {
 }
 
 // RoundTrip implements the http.RoundTripper interface for *transport.
-//
-// TODO(ameshkov): dial explicitly here and then check negotiation proto.
-// This approach will make it easier to handle protocols negotiation.
+// Protocol negotiation happens while dialing (the TLS transport reads ALPN
+// and routes to H2/H1), so this wrapper only normalizes the response.
 func (t *transport) RoundTrip(r *http.Request) (resp *http.Response, err error) {
 	resp, err = t.base.RoundTrip(r)
 	if err != nil {
 		return nil, err
 	}
+
+	// curl -v: dump the request line/headers with the protocol the server
+	// actually negotiated (the transport knows it only after the round trip).
+	r.Proto, r.ProtoMajor, r.ProtoMinor = resp.Proto, resp.ProtoMajor, resp.ProtoMinor
+	t.d.out.CurlRequest(r, t.d.cfg.RawHeaders)
 
 	// Make sure that resp.TLS field is set regardless of what protocol was
 	// used.  This is important for ECH-enabled connections as crypto/tls is
@@ -222,6 +226,14 @@ func (t *uTransport) roundTripTLS(r *http.Request) (*http.Response, error) {
 		proto = u.ConnectionState().NegotiatedProtocol
 	} else if state, ok := conn.(interface{ ConnectionState() tls.ConnectionState }); ok {
 		proto = state.ConnectionState().NegotiatedProtocol
+	}
+
+	// Record the negotiated protocol on the request so that the -v request
+	// dump prints the protocol actually used, exactly like curl does.
+	if proto == "h2" {
+		r.Proto, r.ProtoMajor, r.ProtoMinor = "HTTP/2", 2, 0
+	} else if proto != "" {
+		r.Proto, r.ProtoMajor, r.ProtoMinor = "HTTP/1.1", 1, 1
 	}
 
 	if proto == "h2" {
@@ -512,7 +524,7 @@ func getMethod(cfg *config.Config) (method string) {
 		method = cfg.Method
 	} else if cfg.Head {
 		method = http.MethodHead
-	} else if bodyData(cfg) != "" || len(cfg.Form) > 0 {
+	} else if BodyData(cfg) != "" || len(cfg.Form) > 0 {
 		method = http.MethodPost
 	} else {
 		method = http.MethodGet

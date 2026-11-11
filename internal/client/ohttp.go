@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/chris-wood/ohttp-go"
 	"github.com/jeffpecky/gcurl/internal/config"
 	"github.com/jeffpecky/gcurl/internal/output"
-	"github.com/chris-wood/ohttp-go"
 )
 
 // obliviousHTTPTransport is transport that uses Oblivious HTTP to encrypt

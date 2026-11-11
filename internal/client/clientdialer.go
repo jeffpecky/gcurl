@@ -19,8 +19,8 @@ import (
 	"github.com/jeffpecky/gcurl/internal/output"
 	"github.com/jeffpecky/gcurl/internal/profile"
 	"github.com/jeffpecky/gcurl/internal/resolve"
-	utls "github.com/refraction-networking/utls"
 	"github.com/quic-go/quic-go"
+	utls "github.com/refraction-networking/utls"
 )
 
 // clientDialer is a structure that implements additional logic on top of the
@@ -34,9 +34,9 @@ type clientDialer struct {
 	dial      dialer.DialFunc
 
 	// conn is the last established connection via the dialer.  It can be a TLS
-	// connection if DialTLSContext was used.
-	//
-	// TODO(ameshkov): handle QUIC connections.
+	// connection if DialTLSContext was used.  QUIC connections are not kept
+	// here: http3.Transport owns them and Conn() is only used for WebSocket,
+	// which is TCP-only.
 	conn net.Conn
 }
 
@@ -302,8 +302,8 @@ func createTLSConfig(hostname string, cfg *config.Config, out *output.Output) (t
 	if websocket.IsWebSocket(cfg.RequestURL) {
 		out.Debug("Forcing ALPN http/1.1 as this is a WebSocket request")
 
-		// TODO(ameshkov): Add H2 when it supports WebSocket: https://github.com/golang/go/issues/49918
-		// TODO(ameshkov): Add H3 when it supports WebSocket
+		// WebSocket runs over HTTP/1.1 by definition (RFC 8441 h2 WebSocket
+		// is not implemented here and no h3 WebSocket exists).
 		tlsConfig.NextProtos = []string{"http/1.1"}
 	} else if cfg.ForceHTTP11 {
 		out.Debug("Forcing ALPN http/1.1")

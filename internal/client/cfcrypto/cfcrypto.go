@@ -5,7 +5,6 @@ package cfcrypto
 import (
 	"crypto/tls"
 	"net"
-	"slices"
 
 	ctls "github.com/ameshkov/cfcrypto/tls"
 	"github.com/jeffpecky/gcurl/internal/config"
@@ -83,14 +82,9 @@ func Handshake(
 		conf.Rand = tlsConfig.Rand
 	}
 
-	// In the case of regular http.Transport it can handle h2 upgrade with the
-	// regular tls.Conn only so remove h2 from NextProtos in this case.
-	//
-	// TODO(ameshkov): remove this when transport is reworked to dial first.
-	if slices.Contains(tlsConfig.NextProtos, "http/1.1") &&
-		slices.Contains(tlsConfig.NextProtos, "h2") {
-		conf.NextProtos = []string{"http/1.1"}
-	}
+	// NextProtos is passed through untouched: the transport dials first and
+	// routes on the negotiated ALPN, so it no longer depends on the conn being
+	// a *tls.Conn to reach HTTP/2.
 
 	if cfg.ECH || cfg.ECHGrease {
 		conf.ECHEnabled = true

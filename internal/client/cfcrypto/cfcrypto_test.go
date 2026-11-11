@@ -1,4 +1,4 @@
-// TODO(ameshkov): tests depend on third-party services, rework this.
+// Network-dependent tests skip under -short so CI runs without third-party services.
 package cfcrypto_test
 
 import (
@@ -18,6 +18,7 @@ import (
 )
 
 func TestHandshake_encryptedClientHello(t *testing.T) {
+	requireNetwork(t)
 	const relayDomain = "cloudflare-ech.com"
 	const privateDomain = "cloudflare.com"
 	const path = "cdn-cgi/trace"
@@ -72,6 +73,7 @@ func TestHandshake_encryptedClientHello(t *testing.T) {
 }
 
 func TestHandshake_postQuantum(t *testing.T) {
+	requireNetwork(t)
 	const domainName = "cloudflare.com"
 	const path = "cdn-cgi/trace"
 
@@ -117,4 +119,12 @@ func TestHandshake_postQuantum(t *testing.T) {
 
 	bodyStr := string(body)
 	require.Contains(t, bodyStr, "kex=X25519MLKEM768")
+}
+
+// requireNetwork skips network-dependent tests in short mode.
+func requireNetwork(t *testing.T) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("requires network access")
+	}
 }

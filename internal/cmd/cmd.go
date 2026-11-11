@@ -128,16 +128,8 @@ func Run(cfg *config.Config, out *output.Output) error {
 		req = req.WithContext(ctx)
 	}
 
-	// This is a strange thing, but for the sake of logging WITH the request
-	// body it is easier to create a second request.
-	//
-	// TODO(ameshkov): refactor this.
-	cloneReq, _ := client.NewRequest(cfg)
-
-	// -v prints curl-format request/response dumps.  gcurl's own extended
-	// dump stays behind --json-output pipelines (DebugRequest is only called
-	// when the curl format is not wanted).
-	out.CurlRequest(cloneReq, cfg.RawHeaders)
+	// -v request/response dumps are emitted by the transport, which is the
+	// first place the negotiated protocol is known (curl prints the real one).
 
 	resp, err := transport.RoundTrip(req)
 	if err != nil {
@@ -172,16 +164,18 @@ func Run(cfg *config.Config, out *output.Output) error {
 	out.CurlResponse(resp)
 
 	// WebSocket is processed differently. If request body is supplied with the
-	// "data" command-line argument, it is sent as a text frame, and then it
-	// waits until the response comes from the server.
+	// "data" command-line arguments, it is sent as one frame (binary for
+	// --data-binary), and then it waits until the response comes from the
+	// server.
 	if websocket.IsWebSocketResponse(resp) {
-		wsConn := websocket.NewWebSocket(transport.Conn(), out)
+		wsConn := websocket.NewWebSocket(transport.Conn(), out, client.IsBinaryWebSocketData(cfg))
 		defer func() {
 			_ = wsConn.Close()
 		}()
 
-		if cfg.Data != "" {
-			_, wsErr := wsConn.Write([]byte(cfg.Data))
+		payload := client.BodyData(cfg)
+		if payload != "" {
+			_, wsErr := wsConn.Write([]byte(payload))
 			if wsErr == nil {
 				var b []byte
 				b, wsErr = io.ReadAll(wsConn)

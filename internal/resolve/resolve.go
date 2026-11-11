@@ -24,8 +24,7 @@ const ErrNoResolvers = errors.Error("no resolvers")
 const ErrInvalidResolver = errors.Error("invalid resolver")
 
 // Resolver is a structure that is used whenever DNS resolution is required.
-//
-// TODO(ameshkov): Add --resolve parameter support.
+// --resolve entries are honoured by lookupFromCfg before any DNS query.
 type Resolver struct {
 	cfg *config.Config
 	out *output.Output

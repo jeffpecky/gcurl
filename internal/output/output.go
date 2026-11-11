@@ -2,8 +2,6 @@
 package output
 
 import (
-	"bytes"
-	"context"
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
@@ -12,7 +10,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/jeffpecky/gcurl/internal/config"
@@ -71,7 +68,7 @@ func (o *Output) Write(resp *http.Response, responseBody io.Reader, cfg *config.
 
 	if cfg.OutputJSON {
 		var b []byte
-		b, err = responseToJSON(resp, responseBody)
+		b, err = responseToJSON(resp, responseBody, o.logFileWriter)
 		if err != nil {
 			panic(err)
 		}
@@ -138,59 +135,6 @@ func (o *Output) Debug(format string, args ...any) {
 	if err != nil {
 		panic(err)
 	}
-}
-
-// DebugRequest writes information about the HTTP request to the output.
-//
-// TODO(ameshkov): instead of this, log the actual data sent to tls.Conn.
-func (o *Output) DebugRequest(req *http.Request) {
-	o.Debug("Request:\n%s", requestToString(req))
-}
-
-// DebugResponse writes information about the HTTP response to the output.
-//
-// TODO(ameshkov): instead of this, log the actual data received from tls.Conn.
-func (o *Output) DebugResponse(resp *http.Response) {
-	if resp.TLS != nil {
-		s := stateToTLSState(resp.TLS)
-		o.Debug("\n----\nTLS:")
-
-		o.Debug("Server name: %s", s.ServerName)
-		o.Debug("Version: %s", s.Version)
-		o.Debug("Cipher: %s", s.CipherSuite)
-		if s.NegotiatedProtocol != "" {
-			o.Debug("Negotiated protocol: %s", s.NegotiatedProtocol)
-		}
-
-		o.Debug("\n----\nCertificates:")
-		for i, certInfo := range s.Certificates {
-			o.Debug("Certificate №%d:\n", i+1)
-			o.Debug("Subject: %s", certInfo.Subject)
-			o.Debug("Issuer: %s", certInfo.Issuer)
-			o.Debug("Not before: %s", certInfo.NotBefore)
-			o.Debug("Not after: %s", certInfo.NotAfter)
-			if len(certInfo.DNSNames) > 0 {
-				o.Debug("DNS names:\n%s", strings.Join(certInfo.DNSNames, "\n"))
-			}
-			if len(certInfo.IPAddresses) > 0 {
-				o.Debug("IP addresses:\n%s", strings.Join(certInfo.IPAddresses, "\n"))
-			}
-			o.Debug("Raw certificate:")
-			o.Debug("%s", certInfo.Raw)
-		}
-	}
-
-	o.Debug("Response:\n----\n%s",ResponseToString(resp))
-}
-
-// requestToString converts HTTP request to a string.
-func requestToString(req *http.Request) (str string) {
-	cloneReq := req.Clone(context.Background())
-
-	b := &bytes.Buffer{}
-	_ = cloneReq.Write(b)
-
-	return b.String()
 }
 
 // ResponseToString converts HTTP response to a string.
@@ -271,15 +215,17 @@ func stateToTLSState(state *tls.ConnectionState) (s *TLSState) {
 	return s
 }
 
-// responseToJSON transforms response data to JSON format.
-func responseToJSON(resp *http.Response, responseBody io.Reader) (b []byte, err error) {
+// responseToJSON transforms response data to JSON format.  A failed body read
+// is reported through the log writer and the partial body is still emitted.
+func responseToJSON(resp *http.Response, responseBody io.Reader, log io.Writer) (b []byte, err error) {
 	var body []byte
 
 	if responseBody != nil {
-		// Ignore errors when reading response body.
-		//
-		// TODO(ameshkov): This is a quick crutch, it needs to be logged at least.
-		body, _ = io.ReadAll(responseBody)
+		body, err = io.ReadAll(responseBody)
+		if err != nil {
+			_, _ = fmt.Fprintf(log, "Failed to read response body: %v\n", err)
+			err = nil
+		}
 	}
 
 	if body == nil {
