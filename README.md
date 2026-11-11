@@ -1,7 +1,7 @@
-# gocurl
+# gcurl
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/ameshkov/gocurl)](https://goreportcard.com/report/ameshkov/gocurl)
-[![Latest release](https://img.shields.io/github/release/ameshkov/gocurl/all.svg)](https://github.com/ameshkov/gocurl/releases)
+[![Go Report Card](https://goreportcard.com/badge/github.com/jeffpecky/gcurl)](https://goreportcard.com/report/jeffpecky/gcurl)
+[![Latest release](https://img.shields.io/github/release/jeffpecky/gcurl/all.svg)](https://github.com/jeffpecky/gcurl/releases)
 
 [`curl`](https://curl.se/) compatible tool written in Go that focuses on
 features curl does not provide.
@@ -11,8 +11,8 @@ features curl does not provide.
    [Read more about the new stuff](#newstuff).
 
 - [Why in the world you need another curl?](#why)
-- [How to install gocurl?](#install)
-- [How to use gocurl?](#howtouse)
+- [How to install gcurl?](#install)
+- [How to use gcurl?](#howtouse)
 - [New stuff](#newstuff)
     - [Encrypted ClientHello](#ech)
     - [Custom DNS servers](#dns)
@@ -36,57 +36,51 @@ Unfortunately, curl is a bit too huge for that now.
 
 <a id="install"></a>
 
-## How to install gocurl?
-
-- Using homebrew:
-
-    ```shell
-    brew install ameshkov/tap/gocurl
-    ```
+## How to install gcurl?
 
 - From source:
 
     ```shell
-    go install github.com/ameshkov/gocurl@latest
+    go install github.com/jeffpecky/gcurl@latest
     ```
 
 - You can use [a Docker image][dockerimage]:
 
     ```shell
-    docker run --rm ghcr.io/ameshkov/gocurl --help
+    docker run --rm ghcr.io/jeffpecky/gcurl --help
     ```
 
 - You can get a binary from the [releases page][releases].
 
-[dockerimage]: https://github.com/ameshkov/gocurl/pkgs/container/gocurl
+[dockerimage]: https://github.com/jeffpecky/gcurl/pkgs/container/gcurl
 
-[releases]: https://github.com/ameshkov/gocurl/releases
+[releases]: https://github.com/jeffpecky/gcurl/releases
 
 <a id="howtouse"></a>
 
-## How to use gocurl?
+## How to use gcurl?
 
 Use it the same way you use original curl.
 
-- `gocurl https://httpbin.agrd.workers.dev/get` make a `GET` request.
-- `gocurl -d "test" -v https://httpbin.agrd.workers.dev/post` make a `POST`
+- `gcurl https://httpbin.agrd.workers.dev/get` make a `GET` request.
+- `gcurl -d "test" -v https://httpbin.agrd.workers.dev/post` make a `POST`
   request with `test` data.
-- `gocurl -I https://httpbin.agrd.workers.dev/head` make a `HEAD` request.
-- `gocurl -I --insecure https://expired.badssl.com/` do not verify TLS
+- `gcurl -I https://httpbin.agrd.workers.dev/head` make a `HEAD` request.
+- `gcurl -I --insecure https://expired.badssl.com/` do not verify TLS
   certificate.
-- `gocurl -I --http1.1 https://httpbin.agrd.workers.dev/head` force use
+- `gcurl -I --http1.1 https://httpbin.agrd.workers.dev/head` force use
   HTTP/1.1.
-- `gocurl -I --http2 https://httpbin.agrd.workers.dev/head` force use HTTP/2.
-- `gocurl -I --http3 https://httpbin.agrd.workers.dev/head` force use HTTP/3.
-- `gocurl -x socks5://user:pass@host:port https://httpbin.agrd.workers.dev/get`
+- `gcurl -I --http2 https://httpbin.agrd.workers.dev/head` force use HTTP/2.
+- `gcurl -I --http3 https://httpbin.agrd.workers.dev/head` force use HTTP/3.
+- `gcurl -x socks5://user:pass@host:port https://httpbin.agrd.workers.dev/get`
   use a proxy server.
-- `gocurl -I --tlsv1.3 https://tls-v1-2.badssl.com:1012/` force use TLS v1.3.
-- `gocurl -I --connect-to "httpbin.agrd.workers.dev:443:172.67.152.85:443"
+- `gcurl -I --tlsv1.3 https://tls-v1-2.badssl.com:1012/` force use TLS v1.3.
+- `gcurl -I --connect-to "httpbin.agrd.workers.dev:443:172.67.152.85:443"
   https://httpbin.agrd.workers.dev/head` connect to the specified IP addresses.
-- `gocurl -I --resolve "httpbin.agrd.workers.dev:443:172.67.152.85"
+- `gcurl -I --resolve "httpbin.agrd.workers.dev:443:172.67.152.85"
   https://httpbin.agrd.workers.dev/head` resolve the hostname to the specified
-  IP address. Note, that unlike `curl`, `gocurl` ignores port in this option.
-- `gocurl -I --connect-timeout 3 http://10.255.255.1:9999/test`
+  IP address. Note, that unlike `curl`, `gcurl` ignores port in this option.
+- `gcurl -I --connect-timeout 3 http://10.255.255.1:9999/test`
   set connection timeout to 3 seconds.
 
 <a id="newstuff"></a>
@@ -95,33 +89,33 @@ Use it the same way you use original curl.
 
 Also, you can use some new stuff that is not supported by curl.
 
-- `gocurl --impersonate chrome-133 https://tls.peet.ws/api/all` impersonates a
+- `gcurl --impersonate chrome-133 https://tls.peet.ws/api/all` impersonates a
   real browser's TLS and HTTP/2 fingerprint (ClientHello, SETTINGS order,
   header order).  More on this [below](#impersonate).
 
-- `gocurl --json-output https://httpbin.agrd.workers.dev/get` write output in
+- `gcurl --json-output https://httpbin.agrd.workers.dev/get` write output in
   machine-readable format (JSON).
-- `gocurl --tls-split-hello 5:50 https://httpbin.agrd.workers.dev/get` split
+- `gcurl --tls-split-hello 5:50 https://httpbin.agrd.workers.dev/get` split
   TLS ClientHello in two parts and make a 50ms delay after sending the first
   part.
-- `gocurl --tls-random "gyufwmGYeIiq0B4nUjEYu3NcqVdlHbIXhx74fq4terc=" https://httpbin.agrd.workers.dev/get`
+- `gcurl --tls-random "gyufwmGYeIiq0B4nUjEYu3NcqVdlHbIXhx74fq4terc=" https://httpbin.agrd.workers.dev/get`
   use a custom TLS ClientHello random value.
-- `gocurl -v --ech https://crypto.cloudflare.com/cdn-cgi/trace` enables support
+- `gcurl -v --ech https://crypto.cloudflare.com/cdn-cgi/trace` enables support
   for ECH (Encrypted Client Hello) for the request. More on this [below](#ech).
-- `gocurl --dns-servers "tls://dns.google" https://httpbin.agrd.workers.dev/get`
+- `gcurl --dns-servers "tls://dns.google" https://httpbin.agrd.workers.dev/get`
   uses custom DNS-over-TLS server to resolve hostnames. More on this
   [below](#dns).
-- `gocurl --experiment pq https://pq.cloudflareresearch.com/` enables
+- `gcurl --experiment pq https://pq.cloudflareresearch.com/` enables
   post-quantum cryptography support for the request. More on this [below](#pq).
-- `gocurl wss://httpbin.agrd.workers.dev/ws` sends a WS upgrade request.
-- `gocurl -d "test message" wss://httpbin.agrd.workers.dev/ws` establishes a WS
+- `gcurl wss://httpbin.agrd.workers.dev/ws` sends a WS upgrade request.
+- `gcurl -d "test message" wss://httpbin.agrd.workers.dev/ws` establishes a WS
   connection, sends the first message through it and reads the response.
 
 <a id="impersonate"></a>
 
 #### TLS/HTTP fingerprint impersonation
 
-`--impersonate <profile>` makes gocurl present the TLS ClientHello and HTTP/2
+`--impersonate <profile>` makes gcurl present the TLS ClientHello and HTTP/2
 fingerprint of a real browser instead of Go's default stack.  Available
 profiles (from `internal/profile/profiles/`):
 
@@ -138,13 +132,13 @@ profiles (from `internal/profile/profiles/`):
 
 ```shell
 # Explicit profile:
-gocurl --impersonate firefox-120 https://tls.peet.ws/api/all
+gcurl --impersonate firefox-120 https://tls.peet.ws/api/all
 
 # The default profile is used even without the flag:
-gocurl https://tls.peet.ws/api/all
+gcurl https://tls.peet.ws/api/all
 
 # Stock Go TLS stack (for comparison/debugging):
-gocurl --no-impersonate https://tls.peet.ws/api/all
+gcurl --no-impersonate https://tls.peet.ws/api/all
 ```
 
 A profile bundles a uTLS ClientHello preset (cipher suites, extension
@@ -175,15 +169,15 @@ profile that declares hashes and fails on drift.
 ECH or Encrypted Client Hello is a new standard that allows completely
 encrypting TLS Client Hello. Currently, the RFC is in the [draft stage][echrfc],
 but it is already supported by some big names [like Cloudflare][echcloudflare].
-`gocurl` supports ECH and provides several options to use it.
+`gcurl` supports ECH and provides several options to use it.
 
 The simple option is just add `--ech` flag and see what happens:
 
 ```shell
-gocurl -v --ech https://crypto.cloudflare.com/cdn-cgi/trace
+gcurl -v --ech https://crypto.cloudflare.com/cdn-cgi/trace
 ```
 
-In this case, `gocurl` will try to discover the ECH configuration from DNS
+In this case, `gcurl` will try to discover the ECH configuration from DNS
 records and then use them to establish the connection.
 
 Instead of that, you may choose to supply your own configuration in the same
@@ -194,8 +188,8 @@ base64-encoded format as used by the SVCB record:
 % dig -t https crypto.cloudflare.com. +short
 1 . alpn="http/1.1,h2" ipv4hint=162.159.137.85,162.159.138.85 ech=AEX+DQBBvgAgACARWS42g5NmDZo5pIpTWSwHzTwzdRKPdUW732QbyUeyDQAEAAEAAQASY2xvdWRmbGFyZS1lY2guY29tAAA= ipv6hint=2606:4700:7::a29f:8955,2606:4700:7::a29f:8a55
 
-# You can now pass it to gocurl.
-gocurl -v \
+# You can now pass it to gcurl.
+gcurl -v \
   --echconfig "AEX+DQBBvgAgACARWS42g5NmDZo5pIpTWSwHzTwzdRKPdUW732QbyUeyDQAEAAEAAQASY2xvdWRmbGFyZS1lY2guY29tAAA=" \
   https://crypto.cloudflare.com/cdn-cgi/trace
 ```
@@ -207,7 +201,7 @@ gocurl -v \
 
 Here's what happens under the hood:
 
-1. `gocurl` resolves `crypto.cloudflare.com` IP address and connects to it.
+1. `gcurl` resolves `crypto.cloudflare.com` IP address and connects to it.
 2. It sends TLS ClientHello (outer) with encrypted inner ClientHello to that IP
    address. The ServerName field in the outer ClientHello is set to the one that
    is encoded in the ECH configuration (in this example it will be
@@ -219,7 +213,7 @@ to do that is to use `--connect-to`. Let's send a request to `cloudflare.com`
 and use `crypto.cloudflare.com` as a client-facing server for that.
 
 ```shell
-gocurl -v \
+gcurl -v \
   --connect-to "cloudflare.com:443:crypto.cloudflare.com:443" \
   --echconfig "AEX+DQBBvgAgACARWS42g5NmDZo5pIpTWSwHzTwzdRKPdUW732QbyUeyDQAEAAEAAQASY2xvdWRmbGFyZS1lY2guY29tAAA=" \
   https://cloudflare.com/cdn-cgi/trace
@@ -230,7 +224,7 @@ gocurl -v \
 
 Here's what happens now:
 
-1. `gocurl` connects to `crypto.cloudflare.com` (client-facing relay).
+1. `gcurl` connects to `crypto.cloudflare.com` (client-facing relay).
 2. Sends a TLS ClientHello with `cloudflare-ech.com` in the Server Name
    extension.
 3. Establishes a TLS connection with `cloudflare.com` using the inner encrypted
@@ -244,17 +238,17 @@ Here's what happens now:
 
 #### Custom DNS servers
 
-`gocurl` allows using custom DNS servers to resolve hostnames when making
+`gcurl` allows using custom DNS servers to resolve hostnames when making
 requests. This can be achieved by using `--dns-servers` command-line argument.
-`curl` with `c-ares` also supports this command-line argument, but `gocurl`
+`curl` with `c-ares` also supports this command-line argument, but `gcurl`
 adds encrypted DNS support on top of it, it supports all popular DNS encryption
 protocols: DNS-over-QUIC, DNS-over-HTTPS, DNS-over-TLS and DNSCrypt.
 
-You can specify multiple DNS servers, in this case `gocurl` will attempt to use
+You can specify multiple DNS servers, in this case `gcurl` will attempt to use
 them one by one until it receives a response or until all of them fail:
 
 ```shell
-gocurl \
+gcurl \
   --dns-servers "tls://dns.adguard-dns.com,tls://dns.google" \
   https://example.org/
 
@@ -263,25 +257,25 @@ gocurl \
 - DNS-over-QUIC
 
   ```shell
-  gocurl --dns-servers "quic://dns.adguard-dns.com" https://example.org/
+  gcurl --dns-servers "quic://dns.adguard-dns.com" https://example.org/
   ```
 
 - DNS-over-HTTPS
 
   ```shell
-  gocurl --dns-servers "https://dns.adguard-dns.com/dns-query" https://example.org/
+  gcurl --dns-servers "https://dns.adguard-dns.com/dns-query" https://example.org/
   ```
 
 - DNS-over-TLS
 
   ```shell
-  gocurl --dns-servers "tls://dns.adguard-dns.com" https://example.org/
+  gcurl --dns-servers "tls://dns.adguard-dns.com" https://example.org/
   ```
 
 - DNSCrypt
 
   ```shell
-  gocurl \
+  gcurl \
       --dns-servers sdns://AQIAAAAAAAAAFDE3Ni4xMDMuMTMwLjEzMDo1NDQzINErR_JS3PLCu_iZEIbq95zkSV2LFsigxDIuUso_OQhzIjIuZG5zY3J5cHQuZGVmYXVsdC5uczEuYWRndWFyZC5jb20 \
       https://example.org/
   ```
@@ -302,7 +296,7 @@ a relay and gateway, ensuring that:
 This separation provides strong privacy guarantees, making OHTTP useful for
 privacy-sensitive applications.
 
-`gocurl` has built-in support for OHTTP and can send requests through any
+`gcurl` has built-in support for OHTTP and can send requests through any
 OHTTP gateway by specifying two command-line arguments:
 
 - `--ohttp-gateway-url` - URL of the OHTTP gateway where the encrypted request
@@ -314,7 +308,7 @@ Here's how to make an OHTTP request to `httpbin.agrd.workers.dev` using a demo
 gateway:
 
 ```shell
-gocurl -v \
+gcurl -v \
   --ohttp-gateway-url "https://httpbin.agrd.workers.dev/ohttp/gateway" \
   --ohttp-keys-url "https://httpbin.agrd.workers.dev/ohttp/config" \
   https://httpbin.agrd.workers.dev/get
@@ -331,7 +325,7 @@ This command will:
 You can also make POST requests through OHTTP:
 
 ```shell
-gocurl -v \
+gcurl -v \
   --ohttp-gateway-url "https://httpbin.agrd.workers.dev/ohttp/gateway" \
   --ohttp-keys-url "https://httpbin.agrd.workers.dev/ohttp/config" \
   -d "test data" \
@@ -341,7 +335,7 @@ gocurl -v \
 One more example that uses a demo gateway from [Oblivious Network][ohttpdemo]:
 
 ```shell
-gocurl -v \
+gcurl -v \
   --ohttp-gateway-url "https://demo-gateway.oblivious.network/gateway" \
   --ohttp-keys-url "https://demo-gateway.oblivious.network/ohttp-configs" \
   https://httpbin.agrd.workers.dev/get
@@ -355,20 +349,20 @@ gocurl -v \
 
 #### WebSocket support
 
-`gocurl` provides some initial support for WebSocket protocol. It may be
+`gcurl` provides some initial support for WebSocket protocol. It may be
 extended in the future, see the corresponding [Github issue][wsissue].
 
-- `gocurl wss://httpbin.agrd.workers.dev/ws` sends a WS upgrade request.
-- `gocurl -d "test message" wss://httpbin.agrd.workers.dev/ws` establishes a WS
+- `gcurl wss://httpbin.agrd.workers.dev/ws` sends a WS upgrade request.
+- `gcurl -d "test message" wss://httpbin.agrd.workers.dev/ws` establishes a WS
   connection, sends the first message through it and reads the response.
 
-[wsissue]: https://github.com/ameshkov/gocurl/issues/17
+[wsissue]: https://github.com/jeffpecky/gcurl/issues/17
 
 <a id="exp"></a>
 
 #### Experimental flags
 
-Experimental flags are added to `gocurl` whenever there's a feature that may be
+Experimental flags are added to `gcurl` whenever there's a feature that may be
 completely changed or removed in the future. Experiments can be enabled using
 the `--experiment=<name[:value]>` argument where `name` is the experiment name
 and `value` is an optional string value (the need for it depends on the actual
@@ -380,12 +374,12 @@ experiment).
 
 Post-quantum (PQ) cryptography has been designed to be secure against the
 threat of quantum computers. You can learn more about it from Cloudflare's
-[blog post][postquantum]. `gocurl` supports it via the `--experiment=pq` flag.
+[blog post][postquantum]. `gcurl` supports it via the `--experiment=pq` flag.
 
 Note, that it is not available for `--http3` at the moment.
 
 ```shell
-gocurl --experiment pq https://pq.cloudflareresearch.com/
+gcurl --experiment pq https://pq.cloudflareresearch.com/
 ```
 
 [postquantum]: https://blog.cloudflare.com/post-quantum-for-all/
@@ -427,7 +421,7 @@ Useful commands:
 - `make lint` — run `markdownlint-cli` and `golangci-lint`.
 - `make test` — run the test suite.
 - `make check` — run `make lint` and `make test` in sequence.
-- `make build` — build the `gocurl` binary.
+- `make build` — build the `gcurl` binary.
 
 <a id="allcmdarguments"></a>
 
@@ -435,7 +429,7 @@ Useful commands:
 
 ```shell
 Usage:
-  gocurl [OPTIONS]
+  gcurl [OPTIONS]
 
 Application Options:
       --url=<URL>                                           URL the request will be made to. Can be specified without
@@ -452,8 +446,8 @@ Application Options:
       --connect-timeout=<seconds>                           Maximum time in seconds allowed for the connection phase.
   -I, --head                                                Fetch the headers only.
   -k, --insecure                                            Disables TLS verification of the connection.
-      --tlsv1.3                                             Forces gocurl to use TLS v1.3 or newer.
-      --tlsv1.2                                             Forces gocurl to use TLS v1.2 or newer.
+      --tlsv1.3                                             Forces gcurl to use TLS v1.3 or newer.
+      --tlsv1.2                                             Forces gcurl to use TLS v1.2 or newer.
       --tls-max=<VERSION>                                   (TLS) VERSION defines maximum supported TLS version. Can be
                                                             1.2 or 1.3. The minimum acceptable version is set by
                                                             tlsv1.2 or tlsv1.3.
@@ -462,22 +456,22 @@ Application Options:
                                                             list of available ciphers.
       --tls-servername=<HOSTNAME>                           Specifies the server name that will be sent in TLS
                                                             ClientHello
-      --http1.1                                             Forces gocurl to use HTTP v1.1.
-      --http2                                               Forces gocurl to use HTTP v2.
-      --http3                                               Forces gocurl to use HTTP v3.
+      --http1.1                                             Forces gcurl to use HTTP v1.1.
+      --http2                                               Forces gcurl to use HTTP v2.
+      --http3                                               Forces gcurl to use HTTP v3.
       --ech                                                 Enables ECH support for the request.
       --echgrease                                           Forces sending ECH grease in the ClientHello, but does not
                                                             try to resolve the ECH configuration.
       --echconfig=<base64-encoded data>                     ECH configuration to use for this request. Implicitly
                                                             enables --ech when specified.
-  -4, --ipv4                                                This option tells gocurl to use IPv4 addresses only when
+  -4, --ipv4                                                This option tells gcurl to use IPv4 addresses only when
                                                             resolving host names.
-  -6, --ipv6                                                This option tells gocurl to use IPv6 addresses only when
+  -6, --ipv6                                                This option tells gcurl to use IPv6 addresses only when
                                                             resolving host names.
       --dns-servers=<DNSADDR1,DNSADDR2>                     DNS servers to use when making the request. Supports
                                                             encrypted DNS: tls://, https://, quic://, sdns://
       --resolve=<[+]host:port:addr[,addr]...>               Provide a custom address for a specific host. port is
-                                                            ignored by gocurl. '*' can be used instead of the host
+                                                            ignored by gcurl. '*' can be used instead of the host
                                                             name. Can be specified multiple times.
       --tls-split-hello=<CHUNKSIZE:DELAY>                   An option that allows splitting TLS ClientHello in two
                                                             parts in order to avoid common DPI systems detecting TLS.
@@ -485,9 +479,9 @@ Application Options:
                                                             is split, DELAY is delay in milliseconds before sending the
                                                             second part.
       --tls-random=<base64>                                 Base64-encoded 32-byte TLS ClientHello random value.
-      --json-output                                         Makes gocurl write machine-readable output in JSON format.
+      --json-output                                         Makes gcurl write machine-readable output in JSON format.
   -o, --output=<file>                                       Defines where to write the received data. If not set,
-                                                            gocurl will write everything to stdout.
+                                                            gcurl will write everything to stdout.
       --experiment=<name[:value]>                           Allows enabling experimental options. See the documentation
                                                             for available options. Can be specified multiple times.
       --ohttp-gateway-url=<URL>                             URL of the Oblivious HTTP gateway where the request should

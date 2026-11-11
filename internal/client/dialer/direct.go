@@ -4,8 +4,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/ameshkov/gocurl/internal/output"
-	"github.com/ameshkov/gocurl/internal/resolve"
+	"github.com/jeffpecky/gcurl/internal/output"
+	"github.com/jeffpecky/gcurl/internal/resolve"
 )
 
 // Direct implements the Dialer interface and provides the base DialFunc

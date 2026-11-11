@@ -1,7 +1,7 @@
 # AGENTS.md
 
-Single-binary Go CLI (`gocurl`, a curl-like tool with ECH, encrypted DNS,
-OHTTP, and WebSocket extras). Module `github.com/ameshkov/gocurl`, Go 1.26.5 —
+Single-binary Go CLI (`gcurl`, a curl-like tool with ECH, encrypted DNS,
+OHTTP, and WebSocket extras). Module `github.com/jeffpecky/gcurl`, Go 1.26.5 —
 the local toolchain must match `go.mod`. All code is under `internal/`; there is
 no exported API or second module.
 
@@ -67,7 +67,7 @@ no exported API or second module.
 ## Releases
 
 - Version is injected at link time via
-  `-ldflags "-X github.com/ameshkov/gocurl/internal/appversion.version=$(VERSION)"`
+  `-ldflags "-X github.com/jeffpecky/gcurl/internal/appversion.version=$(VERSION)"`
   (Makefile and Dockerfile); `appversion.Version()` falls back to `v0.0` when
   unset.
 - Version bumps are dedicated commits ("Bump version to vX.Y.Z") with a

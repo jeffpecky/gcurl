@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/ameshkov/gocurl/internal/output"
+	"github.com/jeffpecky/gcurl/internal/output"
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 )

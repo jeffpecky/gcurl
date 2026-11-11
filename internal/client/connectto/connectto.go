@@ -5,8 +5,8 @@ package connectto
 import (
 	"net"
 
-	"github.com/ameshkov/gocurl/internal/client/dialer"
-	"github.com/ameshkov/gocurl/internal/output"
+	"github.com/jeffpecky/gcurl/internal/client/dialer"
+	"github.com/jeffpecky/gcurl/internal/output"
 )
 
 // CreateDialFunc creates a dialer.DialFunc that overrides the remote endpoint

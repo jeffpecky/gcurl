@@ -8,9 +8,9 @@ import (
 	"slices"
 
 	ctls "github.com/ameshkov/cfcrypto/tls"
-	"github.com/ameshkov/gocurl/internal/config"
-	"github.com/ameshkov/gocurl/internal/output"
-	"github.com/ameshkov/gocurl/internal/resolve"
+	"github.com/jeffpecky/gcurl/internal/config"
+	"github.com/jeffpecky/gcurl/internal/output"
+	"github.com/jeffpecky/gcurl/internal/resolve"
 )
 
 // Handshake attempts to establish a TLS connection using Cloudflare's TLS fork.

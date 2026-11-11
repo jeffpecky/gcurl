@@ -6,12 +6,12 @@
 //
 // Usage:
 //
-//	go build -o gocurl . && go run ./selftest              # verify all
+//	go build -o gcurl . && go run ./selftest              # verify all
 //	go run ./selftest chrome-133                           # one profile
 //
 // The fingerprint endpoint defaults to https://tls.peet.ws/api/all and can
 // be overridden with SELFTEST_ENDPOINT; the binary under test with
-// SELFTEST_BINARY (default ./gocurl).
+// SELFTEST_BINARY (default ./gcurl).
 package main
 
 import (
@@ -25,8 +25,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ameshkov/gocurl/internal/ja4h"
-	"github.com/ameshkov/gocurl/internal/profile"
+	"github.com/jeffpecky/gcurl/internal/ja4h"
+	"github.com/jeffpecky/gcurl/internal/profile"
 )
 
 // echoResponse is the subset of tls.peet.ws/api/all we verify against.
@@ -56,7 +56,7 @@ func main() {
 
 	bin := os.Getenv("SELFTEST_BINARY")
 	if bin == "" {
-		bin = "./gocurl"
+		bin = "./gcurl"
 	}
 
 	names := profile.Names()

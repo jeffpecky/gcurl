@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/ameshkov/gocurl/internal/config"
+	"github.com/jeffpecky/gcurl/internal/config"
 )
 
 func TestNewRequestPrefersExplicitContentType(t *testing.T) {

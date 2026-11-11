@@ -7,8 +7,8 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/ameshkov/gocurl/internal/client/dialer"
-	"github.com/ameshkov/gocurl/internal/output"
+	"github.com/jeffpecky/gcurl/internal/client/dialer"
+	"github.com/jeffpecky/gcurl/internal/output"
 	"golang.org/x/net/proxy"
 )
 

@@ -10,10 +10,10 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/ameshkov/gocurl/internal/client/cfcrypto"
-	"github.com/ameshkov/gocurl/internal/config"
-	"github.com/ameshkov/gocurl/internal/output"
-	"github.com/ameshkov/gocurl/internal/resolve"
+	"github.com/jeffpecky/gcurl/internal/client/cfcrypto"
+	"github.com/jeffpecky/gcurl/internal/config"
+	"github.com/jeffpecky/gcurl/internal/output"
+	"github.com/jeffpecky/gcurl/internal/resolve"
 	"github.com/stretchr/testify/require"
 )
 

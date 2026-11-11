@@ -26,9 +26,9 @@ RUN apk --update add ca-certificates
 FROM scratch
 
 # Copy the binary from the builder stage to the production image.
-COPY --from=builder /app/gocurl /
+COPY --from=builder /app/gcurl /
 
 # Copy the CA certificates from the certs image.
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
-ENTRYPOINT ["/gocurl"]
+ENTRYPOINT ["/gcurl"]

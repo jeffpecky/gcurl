@@ -23,7 +23,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Build
-        run: go build -o gocurl .
+        run: go build -o gcurl .
 
       - name: Verify profile fingerprints
         run: go run ./selftest

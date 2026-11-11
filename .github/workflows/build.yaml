@@ -82,7 +82,7 @@ jobs:
       - run: GOOS=freebsd GOARCH=arm GOARM=6 VERSION=${RELEASE_VERSION} make release
       - run: GOOS=freebsd GOARCH=arm64 VERSION=${RELEASE_VERSION} make release
 
-      - run: ls -l build/gocurl-*
+      - run: ls -l build/gcurl-*
 
       - name: Create release
         if: startsWith(github.ref, 'refs/tags/v')
@@ -95,5 +95,5 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            build/gocurl-*.tar.gz
-            build/gocurl-*.zip
+            build/gcurl-*.tar.gz
+            build/gcurl-*.zip

@@ -1,4 +1,4 @@
-# gocurl changelog
+# gcurl changelog
 
 All notable changes to this project will be documented in this file.
 
@@ -10,6 +10,11 @@ adheres to [Semantic Versioning][semver].
 [semver]: https://semver.org/spec/v2.0.0.html
 
 ## [Unreleased]
+
+### Changed
+
+- The project is renamed from `gocurl` to `gcurl`: module path
+  `github.com/jeffpecky/gcurl`, binary `gcurl`.
 
 [unreleased]: https://github.com/ameshkov/gocurl/compare/v1.6.0...HEAD
 

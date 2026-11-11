@@ -101,10 +101,10 @@ type Options struct {
 	Insecure bool `short:"k" long:"insecure" description:"Disables TLS verification of the connection." optional:"yes" optional-value:"true"`
 
 	// TLSv13 forces to use TLS v1.3.
-	TLSv13 bool `long:"tlsv1.3" description:"Forces gocurl to use TLS v1.3 or newer." optional:"yes" optional-value:"true"`
+	TLSv13 bool `long:"tlsv1.3" description:"Forces gcurl to use TLS v1.3 or newer." optional:"yes" optional-value:"true"`
 
 	// TLSv13 forces to use TLS v1.2.
-	TLSv12 bool `long:"tlsv1.2" description:"Forces gocurl to use TLS v1.2 or newer." optional:"yes" optional-value:"true"`
+	TLSv12 bool `long:"tlsv1.2" description:"Forces gcurl to use TLS v1.2 or newer." optional:"yes" optional-value:"true"`
 
 	// TLSMax specifies the maximum supported TLS version.
 	TLSMax string `long:"tls-max" description:"(TLS) VERSION defines maximum supported TLS version. Can be 1.2 or 1.3. The minimum acceptable version is set by tlsv1.2 or tlsv1.3." value-name:"<VERSION>"`
@@ -119,13 +119,13 @@ type Options struct {
 	TLSServerName string `long:"tls-servername" description:"Specifies the server name that will be sent in TLS ClientHello" value-name:"<HOSTNAME>"`
 
 	// HTTPv11 forces to use HTTP v1.1.
-	HTTPv11 bool `long:"http1.1" description:"Forces gocurl to use HTTP v1.1." optional:"yes" optional-value:"true"`
+	HTTPv11 bool `long:"http1.1" description:"Forces gcurl to use HTTP v1.1." optional:"yes" optional-value:"true"`
 
 	// HTTPv2 forces to use HTTP v2.
-	HTTPv2 bool `long:"http2" description:"Forces gocurl to use HTTP v2." optional:"yes" optional-value:"true"`
+	HTTPv2 bool `long:"http2" description:"Forces gcurl to use HTTP v2." optional:"yes" optional-value:"true"`
 
 	// HTTPv3 forces to use HTTP v3.
-	HTTPv3 bool `long:"http3" description:"Forces gocurl to use HTTP v3." optional:"yes" optional-value:"true"`
+	HTTPv3 bool `long:"http3" description:"Forces gcurl to use HTTP v3." optional:"yes" optional-value:"true"`
 
 	// ECH forces usage of Encrypted Client Hello for the request.  If other
 	// ECH-related fields are not specified, the ECH configuration will be
@@ -144,11 +144,11 @@ type Options struct {
 
 	// IPv4 if configured forces usage of IP4 addresses only when doing DNS
 	// resolution.
-	IPv4 bool `short:"4" long:"ipv4" description:"This option tells gocurl to use IPv4 addresses only when resolving host names." optional:"yes" optional-value:"true"`
+	IPv4 bool `short:"4" long:"ipv4" description:"This option tells gcurl to use IPv4 addresses only when resolving host names." optional:"yes" optional-value:"true"`
 
 	// IPv6 if configured forces usage of IP4 addresses only when doing DNS
 	// resolution.
-	IPv6 bool `short:"6" long:"ipv6" description:"This option tells gocurl to use IPv6 addresses only when resolving host names." optional:"yes" optional-value:"true"`
+	IPv6 bool `short:"6" long:"ipv6" description:"This option tells gcurl to use IPv6 addresses only when resolving host names." optional:"yes" optional-value:"true"`
 
 	// DNSServers is a list of DNS servers that will be used to resolve
 	// hostnames when making a request.  Encrypted DNS addresses or DNS stamps
@@ -157,7 +157,7 @@ type Options struct {
 
 	// Resolve allows to provide a custom address for a specific host and port
 	// pair. Supports '*' instead of the host name to cover all hosts.
-	Resolve []string `long:"resolve" description:"Provide a custom address for a specific host. port is ignored by gocurl. '*' can be used instead of the host name. Can be specified multiple times." value-name:"<[+]host:port:addr[,addr]...>"`
+	Resolve []string `long:"resolve" description:"Provide a custom address for a specific host. port is ignored by gcurl. '*' can be used instead of the host name. Can be specified multiple times." value-name:"<[+]host:port:addr[,addr]...>"`
 
 	// TLSSplitHello is an option that allows splitting TLS ClientHello in two
 	// parts in order to avoid common DPI systems detecting TLS. CHUNKSIZE is
@@ -170,11 +170,11 @@ type Options struct {
 	TLSRandom string `long:"tls-random" description:"Base64-encoded 32-byte TLS ClientHello random value." value-name:"<base64>"`
 
 	// OutputJSON enables writing output in JSON format.
-	OutputJSON bool `long:"json-output" description:"Makes gocurl write machine-readable output in JSON format." optional:"yes" optional-value:"true"`
+	OutputJSON bool `long:"json-output" description:"Makes gcurl write machine-readable output in JSON format." optional:"yes" optional-value:"true"`
 
-	// OutputPath defines where to write the received data. If not set, gocurl
+	// OutputPath defines where to write the received data. If not set, gcurl
 	// will write everything to stdout.
-	OutputPath string `short:"o" long:"output" description:"Defines where to write the received data. If not set, gocurl will write everything to stdout." value-name:"<file>"`
+	OutputPath string `short:"o" long:"output" description:"Defines where to write the received data. If not set, gcurl will write everything to stdout." value-name:"<file>"`
 
 	// Experiments allows to enable experimental configuration options.
 	Experiments []string `long:"experiment" description:"Allows enabling experimental options. See the documentation for available options. Can be specified multiple times." value-name:"<name[:value]>"`

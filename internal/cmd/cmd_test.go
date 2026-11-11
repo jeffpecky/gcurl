@@ -22,9 +22,9 @@ import (
 	"time"
 
 	"github.com/AdguardTeam/golibs/log"
-	"github.com/ameshkov/gocurl/internal/cmd"
-	"github.com/ameshkov/gocurl/internal/config"
-	"github.com/ameshkov/gocurl/internal/output"
+	"github.com/jeffpecky/gcurl/internal/cmd"
+	"github.com/jeffpecky/gcurl/internal/config"
+	"github.com/jeffpecky/gcurl/internal/output"
 	"github.com/mccutchen/go-httpbin/v2/httpbin"
 	"github.com/quic-go/quic-go/http3"
 	"github.com/stretchr/testify/assert"
@@ -314,7 +314,7 @@ func TestRunUserAgent(t *testing.T) {
 	dataBuffer := &bytes.Buffer{}
 	logBuffer := &bytes.Buffer{}
 
-	customUA := "gocurl-test/1.0"
+	customUA := "gcurl-test/1.0"
 
 	// Parse config with test arguments
 	args := []string{

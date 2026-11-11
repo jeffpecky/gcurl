@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/AdguardTeam/golibs/log"
-	"github.com/ameshkov/gocurl/internal/appversion"
+	"github.com/jeffpecky/gcurl/internal/appversion"
 	"golang.org/x/net/proxy"
 )
 
@@ -74,8 +74,8 @@ func (d *httpProxyDialer) Dial(network, addr string) (net.Conn, error) {
 		Header: make(http.Header),
 	}
 
-	// Set User-Agent to gocurl.
-	req.Header.Set("User-Agent", fmt.Sprintf("gocurl/%s", appversion.Version()))
+	// Set User-Agent to gcurl.
+	req.Header.Set("User-Agent", fmt.Sprintf("gcurl/%s", appversion.Version()))
 
 	// Add proxy authentication if provided
 	if d.proxyURL.User != nil {

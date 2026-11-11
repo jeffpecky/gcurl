@@ -13,7 +13,7 @@ import (
 
 	"github.com/AdguardTeam/dnsproxy/upstream"
 	ctls "github.com/ameshkov/cfcrypto/tls"
-	"github.com/ameshkov/gocurl/internal/profile"
+	"github.com/jeffpecky/gcurl/internal/profile"
 )
 
 // Config is a strictly-typed and validated configuration structure which is

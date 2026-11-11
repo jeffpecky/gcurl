@@ -13,11 +13,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ameshkov/gocurl/internal/appversion"
-	"github.com/ameshkov/gocurl/internal/client"
-	"github.com/ameshkov/gocurl/internal/client/websocket"
-	"github.com/ameshkov/gocurl/internal/config"
-	"github.com/ameshkov/gocurl/internal/output"
+	"github.com/jeffpecky/gcurl/internal/appversion"
+	"github.com/jeffpecky/gcurl/internal/client"
+	"github.com/jeffpecky/gcurl/internal/client/websocket"
+	"github.com/jeffpecky/gcurl/internal/config"
+	"github.com/jeffpecky/gcurl/internal/output"
 	goFlags "github.com/jessevdk/go-flags"
 )
 
@@ -26,7 +26,7 @@ func Main() {
 	// curl compat: --version and -V print the version.  -v is verbose — it
 	// must NOT be treated as --version (curl's own version short flag is -V).
 	if len(os.Args) == 2 && (os.Args[1] == "--version" || os.Args[1] == "-V") {
-		fmt.Printf("gocurl version: %s\n", appversion.Version())
+		fmt.Printf("gcurl version: %s\n", appversion.Version())
 
 		os.Exit(0)
 	}
@@ -100,10 +100,10 @@ func exitCodeFor(err error) (code int) {
 	return 1
 }
 
-// Run executes the main logic of the gocurl command with the provided config
+// Run executes the main logic of the gcurl command with the provided config
 // and output. This function is extracted to make it testable.
 func Run(cfg *config.Config, out *output.Output) error {
-	out.Debug("Starting gocurl %s with arguments:\n%s", appversion.Version(), cfg.RawOptions)
+	out.Debug("Starting gcurl %s with arguments:\n%s", appversion.Version(), cfg.RawOptions)
 
 	out.CurlInfo("Request started; target=%s impersonate=%s", cfg.RequestURL, cfg.Impersonate)
 
@@ -134,7 +134,7 @@ func Run(cfg *config.Config, out *output.Output) error {
 	// TODO(ameshkov): refactor this.
 	cloneReq, _ := client.NewRequest(cfg)
 
-	// -v prints curl-format request/response dumps.  gocurl's own extended
+	// -v prints curl-format request/response dumps.  gcurl's own extended
 	// dump stays behind --json-output pipelines (DebugRequest is only called
 	// when the curl format is not wanted).
 	out.CurlRequest(cloneReq, cfg.RawHeaders)

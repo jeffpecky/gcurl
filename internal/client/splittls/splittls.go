@@ -6,8 +6,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/ameshkov/gocurl/internal/client/dialer"
-	"github.com/ameshkov/gocurl/internal/output"
+	"github.com/jeffpecky/gcurl/internal/client/dialer"
+	"github.com/jeffpecky/gcurl/internal/output"
 )
 
 // CreateDialFunc creates a dialFunc that splits the TLS ClientHello in two

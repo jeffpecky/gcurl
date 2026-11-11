@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ameshkov/gocurl/internal/config"
+	"github.com/jeffpecky/gcurl/internal/config"
 )
 
 // Writer is an interface for writing output.

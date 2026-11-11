@@ -6,7 +6,7 @@
 //
 // Usage:
 //
-//	go build -o gocurl . && go run ./selftest/curl_diff
+//	go build -o gcurl . && go run ./selftest/curl_diff
 package main
 
 import (
@@ -33,7 +33,7 @@ type casediff struct {
 }
 
 func main() {
-	bin := flag.String("binary", "./gocurl", "path to the compiled gocurl binary")
+	bin := flag.String("binary", "./gcurl", "path to the compiled gcurl binary")
 	curlBin := flag.String("curl", "curl", "path to real curl")
 	flag.Parse()
 
@@ -70,7 +70,7 @@ func main() {
 		ourArgs := append(append([]string{}, args...), "--no-impersonate", target+path)
 		ourOut, err := run(*bin, ourArgs)
 		if err != nil {
-			printCase(name, false, "gocurl failed: %v", err)
+			printCase(name, false, "gcurl failed: %v", err)
 			failed = true
 			continue
 		}
@@ -143,7 +143,7 @@ func compare(curlOut, ourOut string, caseArgs []string) (match bool, note string
 		return false, fmt.Sprintf("parsing curl output: %v, body: %.200s", err, curlOut)
 	}
 	if err := json.Unmarshal([]byte(stripNoise(ourOut)), &ou); err != nil {
-		return false, fmt.Sprintf("parsing gocurl output: %v, body: %.200s", err, ourOut)
+		return false, fmt.Sprintf("parsing gcurl output: %v, body: %.200s", err, ourOut)
 	}
 
 	// The response bodies differ in shape (headers casing, extra proxy

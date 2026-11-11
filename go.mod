@@ -1,4 +1,4 @@
-module github.com/ameshkov/gocurl
+module github.com/jeffpecky/gcurl
 
 go 1.26.5
 

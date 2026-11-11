@@ -9,10 +9,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ameshkov/gocurl/internal/appversion"
-	"github.com/ameshkov/gocurl/internal/client/websocket"
-	"github.com/ameshkov/gocurl/internal/config"
-	"github.com/ameshkov/gocurl/internal/profile"
+	"github.com/jeffpecky/gcurl/internal/appversion"
+	"github.com/jeffpecky/gcurl/internal/client/websocket"
+	"github.com/jeffpecky/gcurl/internal/config"
+	"github.com/jeffpecky/gcurl/internal/profile"
 )
 
 // NewRequest creates a new *http.Request based on *cmd.Options.
@@ -81,13 +81,13 @@ func NewRequest(cfg *config.Config) (req *http.Request, err error) {
 
 // applyProfileDefaults fills in the User-Agent and default headers from the
 // active impersonation profile for anything the user did not set explicitly.
-// When impersonation is off, gocurl's own User-Agent is set (it must not
+// When impersonation is off, gcurl's own User-Agent is set (it must not
 // pretend to be something it isn't).
 func applyProfileDefaults(req *http.Request, cfg *config.Config) {
 	prof, err := profile.Get(cfg.Impersonate)
 	if err != nil || prof == nil || prof.HTTP == nil {
 		if req.Header.Get("User-Agent") == "" {
-			req.Header.Set("User-Agent", fmt.Sprintf("gocurl/%s", appversion.Version()))
+			req.Header.Set("User-Agent", fmt.Sprintf("gcurl/%s", appversion.Version()))
 		}
 		return
 	}

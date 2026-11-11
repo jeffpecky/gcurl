@@ -1,4 +1,4 @@
-// Package resolve is responsible for everything DNS-related in gocurl.
+// Package resolve is responsible for everything DNS-related in gcurl.
 package resolve
 
 import (
@@ -9,8 +9,8 @@ import (
 	"github.com/AdguardTeam/golibs/errors"
 	"github.com/AdguardTeam/golibs/netutil/sysresolv"
 	ctls "github.com/ameshkov/cfcrypto/tls"
-	"github.com/ameshkov/gocurl/internal/config"
-	"github.com/ameshkov/gocurl/internal/output"
+	"github.com/jeffpecky/gcurl/internal/config"
+	"github.com/jeffpecky/gcurl/internal/output"
 	"github.com/miekg/dns"
 )
 

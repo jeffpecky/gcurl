@@ -6,7 +6,7 @@
 //
 // Usage:
 //
-//	go build -o gocurl . && go run ./selftest -capture chrome-133
+//	go build -o gcurl . && go run ./selftest -capture chrome-133
 package main
 
 import (
@@ -17,11 +17,11 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/ameshkov/gocurl/internal/ja4h"
+	"github.com/jeffpecky/gcurl/internal/ja4h"
 )
 
 func main() {
-	bin := flag.String("binary", "./gocurl", "path to the compiled gocurl binary")
+	bin := flag.String("binary", "./gcurl", "path to the compiled gcurl binary")
 	endpoint := flag.String("endpoint", "https://tls.peet.ws/api/all", "fingerprint echo endpoint")
 	profileName := flag.String("capture", "", "profile name to capture")
 	flag.Parse()

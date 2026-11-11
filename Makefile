@@ -1,9 +1,9 @@
-NAME=gocurl
+NAME=gcurl
 BASE_BUILDDIR=build
 BUILDNAME=$(GOOS)-$(GOARCH)
 BUILDDIR=$(BASE_BUILDDIR)/$(BUILDNAME)
 VERSION?=v0.0-dev
-VERSIONPKG=github.com/ameshkov/gocurl/internal/appversion
+VERSIONPKG=github.com/jeffpecky/gcurl/internal/appversion
 
 ifeq ($(GOOS),windows)
   ext=.exe
@@ -49,7 +49,7 @@ capture: build
 
 # init installs the git pre-commit hook, see .githooks/pre-commit.
 init:
-	@ echo "Installing the gocurl pre-commit hook..."
+	@ echo "Installing the gcurl pre-commit hook..."
 	@ mkdir -p .git/hooks
 	@ cp .githooks/pre-commit .git/hooks/pre-commit
 	@ chmod +x .git/hooks/pre-commit

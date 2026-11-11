@@ -8,9 +8,9 @@ import (
 
 	"github.com/AdguardTeam/dnsproxy/upstream"
 	ctls "github.com/ameshkov/cfcrypto/tls"
-	"github.com/ameshkov/gocurl/internal/config"
-	"github.com/ameshkov/gocurl/internal/output"
-	"github.com/ameshkov/gocurl/internal/resolve"
+	"github.com/jeffpecky/gcurl/internal/config"
+	"github.com/jeffpecky/gcurl/internal/output"
+	"github.com/jeffpecky/gcurl/internal/resolve"
 	"github.com/stretchr/testify/require"
 )
 
