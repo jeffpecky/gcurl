@@ -11,7 +11,6 @@ jobs:
   golangci:
     strategy:
       matrix:
-        go: [stable]
         os: [ubuntu-latest, macos-latest]
     name: lint
     runs-on: ${{ matrix.os }}
@@ -19,7 +18,10 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
         with:
-          go-version: ${{ matrix.go }}
+          # Must match go.mod: golangci-lint is built with an older Go and
+          # panics ("file requires newer Go version") when it parses a stdlib
+          # newer than its own toolchain.
+          go-version-file: go.mod
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
