@@ -160,7 +160,8 @@ func (d *clientDialer) handshakeTLS(conn net.Conn) (tlsConn net.Conn, err error)
 
 	err = uConn.HandshakeContext(context.Background())
 	if err != nil {
-		d.out.Debug("uTLS handshake failed to %s (SNI=%s ALPN=%v): %s", conn.RemoteAddr(), uCfg.ServerName, uCfg.NextProtos, err)
+		d.out.Debug("uTLS handshake failed to %s (SNI=%s ALPN=%v): %s",
+			conn.RemoteAddr(), uCfg.ServerName, uCfg.NextProtos, err)
 		return nil, fmt.Errorf("utls handshake: %w", err)
 	}
 

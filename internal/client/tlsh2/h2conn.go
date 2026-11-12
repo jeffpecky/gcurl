@@ -293,6 +293,9 @@ func readResponse(conn net.Conn, streamWindow uint32) (*Response, error) {
 			}
 
 		case frameData:
+			// payload length is a 24-bit field decoded in readFrame, so it
+			// always fits a uint32.
+			//nolint:gosec // G115: length came from a 24-bit field
 			bodyFlow -= uint32(len(payload))
 			resp.Body = append(resp.Body, payload...)
 			if fh.Flags&flagEndStream != 0 {
@@ -338,11 +341,21 @@ func newFrameWriter(conn net.Conn) *frameWriter {
 	return &frameWriter{w: bufio.NewWriter(conn)}
 }
 
+// maxFramePayload is the largest value the frame header's 24-bit length field
+// can express.
+const maxFramePayload = 1<<24 - 1
+
 func (fw *frameWriter) writeFrame(typ, flags byte, streamID uint32, payload []byte) error {
+	if len(payload) > maxFramePayload {
+		return fmt.Errorf("frame payload %d bytes exceeds the 24-bit maximum", len(payload))
+	}
+
 	var hdr [9]byte
-	hdr[0] = byte(len(payload) >> 16)
-	hdr[1] = byte(len(payload) >> 8)
-	hdr[2] = byte(len(payload))
+	// hdr[0..2] is the 24-bit big-endian payload length; shifting into the top
+	// three bytes of the uint32 lets one PutUint32 fill them.  hdr[3] then gets
+	// the frame type.  The conversion is safe because of the check above.
+	//nolint:gosec // G115: length is bounded by maxFramePayload
+	binary.BigEndian.PutUint32(hdr[0:4], uint32(len(payload))<<8)
 	hdr[3] = typ
 	hdr[4] = flags
 	binary.BigEndian.PutUint32(hdr[5:9], streamID)
@@ -359,7 +372,7 @@ func (fw *frameWriter) writeFrame(typ, flags byte, streamID uint32, payload []by
 
 // writeDataFrame sends the request body, respecting the stream window.
 func (fw *frameWriter) writeDataFrame(streamID uint32, body []byte, window uint32) error {
-	if uint32(len(body)) > window {
+	if uint64(len(body)) > uint64(window) {
 		return fmt.Errorf("request body %d bytes exceeds initial stream window %d", len(body), window)
 	}
 

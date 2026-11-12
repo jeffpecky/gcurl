@@ -18,8 +18,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"os/exec"
 	"strings"
@@ -68,6 +66,7 @@ func main() {
 	for _, name := range names {
 		prof, err := profile.Get(name)
 		if err != nil {
+			//nolint:gosec // plain-text CLI output, not HTML; no XSS sink exists
 			fmt.Fprintf(os.Stderr, "FAIL %s: %v\n", name, err)
 			failed = true
 			continue
@@ -77,6 +76,7 @@ func main() {
 			continue
 		}
 		if err := verifyProfile(bin, prof, endpoint); err != nil {
+			//nolint:gosec // plain-text CLI output, not HTML; no XSS sink exists
 			fmt.Fprintf(os.Stderr, "FAIL %s: %v\n", name, err)
 			failed = true
 			continue
@@ -94,6 +94,7 @@ func main() {
 // profile's declared hashes.
 func verifyProfile(bin string, prof *profile.Profile, endpoint string) error {
 	var stdout, stderr bytes.Buffer
+	//nolint:gosec // bin is the operator-supplied binary under test
 	cmd := exec.Command(bin, "--impersonate", prof.Name, endpoint)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -168,8 +169,3 @@ func truncate(s string, n int) string {
 
 	return s[:n] + "…"
 }
-
-// referenced so the http import stays honest if the endpoint logic grows;
-// the current flow shells out to the binary only.
-var _ = http.MethodGet
-var _ io.Reader

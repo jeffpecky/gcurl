@@ -209,7 +209,7 @@ func (p *Profile) H2Fingerprint() *H2FingerprintSpec {
 		PseudoHeaderOrder: p.H2.PseudoHeaderOrder,
 	}
 	for _, s := range p.H2.Settings {
-		fp.Settings = append(fp.Settings, H2SettingWire{ID: s.ID, Val: s.Val})
+		fp.Settings = append(fp.Settings, H2SettingWire(s))
 	}
 
 	return fp

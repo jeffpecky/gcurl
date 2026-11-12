@@ -1,7 +1,8 @@
-// curlverbose.go implements curl-style verbose (-v) output: the "* ..."
-// informational lines, "> " request lines and "< " response lines that tools
-// parsing `curl -v` output rely on.  See output.go for the main Output type.
 package output
+
+// This file implements curl-style verbose (-v) output: the "* ..."
+// informational lines, "> " request lines and "< " response lines that tools
+// parsing `curl -v` output rely on.
 
 import (
 	"fmt"
@@ -52,7 +53,8 @@ func (o *Output) CurlRequest(req *http.Request, headerOrder []string) {
 	}
 
 	write := func(format string, args ...any) {
-		_, _ = o.logFileWriter.WriteString(fmt.Sprintf(format, args...))
+		//nolint:gosec // G705: -v output goes to a log file/stderr, never HTML
+		_, _ = fmt.Fprintf(o.logFileWriter, format, args...)
 	}
 
 	path := req.URL.RequestURI()
@@ -92,7 +94,7 @@ func (o *Output) CurlResponse(resp *http.Response) {
 	}
 
 	write := func(format string, args ...any) {
-		_, _ = o.logFileWriter.WriteString(fmt.Sprintf(format, args...))
+		_, _ = fmt.Fprintf(o.logFileWriter, format, args...)
 	}
 
 	write("< %s %s\n", curlProto(resp.Proto, resp.ProtoMajor), resp.Status)

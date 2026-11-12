@@ -23,15 +23,6 @@ import (
 // own path (/get or /post).
 var target = "https://httpbin.org"
 
-// casediff is one flag combination and its comparison result.
-type casediff struct {
-	Name    string   `json:"name"`
-	Args    []string `json:"args"`
-	Match   bool     `json:"match"`
-	Skipped bool     `json:"skipped,omitempty"`
-	Note    string   `json:"note,omitempty"`
-}
-
 func main() {
 	bin := flag.String("binary", "./gcurl", "path to the compiled gcurl binary")
 	curlBin := flag.String("curl", "curl", "path to real curl")
@@ -99,7 +90,7 @@ func main() {
 
 // run executes a command and returns its stdout.
 func run(bin string, args []string) (string, error) {
-	cmd := exec.Command(bin, args...)
+	cmd := exec.Command(bin, args...) //nolint:gosec // operator-supplied binaries
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

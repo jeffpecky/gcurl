@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -140,50 +141,20 @@ func Run(cfg *config.Config, out *output.Output) error {
 		_ = body.Close()
 	}(resp.Body)
 
-	// Response body is only written when we're sure that it is there and can
-	// be fully read.
-	var responseBody io.Reader
-	if resp.ProtoMajor >= 2 ||
-		// Content length guarantees that the response can be fully read.
-		resp.ContentLength > 0 ||
-		// Transfer-Encoding also guarantees that it's clear when body is
-		// finished.
-		len(resp.TransferEncoding) > 0 ||
-		// OHTTP responses may not have any headers apart from content-type,
-		// but they contain the full body right away.
-		cfg.OHTTPGatewayURL != nil ||
-		// When Connection: close we must read the body until the connection is
-		// closed.
-		resp.Header.Get("Connection") == "close" {
-		responseBody = resp.Body
-	}
-	if req.Method == http.MethodHead {
-		responseBody = nil
-	}
+	responseBody := responseBodyFor(cfg, req, resp)
 
 	out.CurlResponse(resp)
 
-	// WebSocket is processed differently. If request body is supplied with the
-	// "data" command-line arguments, it is sent as one frame (binary for
-	// --data-binary), and then it waits until the response comes from the
-	// server.
+	// WebSocket is processed differently: the response is an upgrade, so the
+	// payload (if any) goes out as a single frame and the body is whatever the
+	// server streams back until it closes.
 	if websocket.IsWebSocketResponse(resp) {
 		wsConn := websocket.NewWebSocket(transport.Conn(), out, client.IsBinaryWebSocketData(cfg))
 		defer func() {
 			_ = wsConn.Close()
 		}()
 
-		payload := client.BodyData(cfg)
-		if payload != "" {
-			_, wsErr := wsConn.Write([]byte(payload))
-			if wsErr == nil {
-				var b []byte
-				b, wsErr = io.ReadAll(wsConn)
-				if wsErr == nil {
-					responseBody = io.NopCloser(bytes.NewReader(b))
-				}
-			}
-		}
+		responseBody = drainWebSocket(cfg, wsConn, responseBody)
 	}
 
 	// Write the response contents to the output.
@@ -198,27 +169,12 @@ func Run(cfg *config.Config, out *output.Output) error {
 		)
 	}
 
-	if cfg.CookieJar != "" && resp.TLS != nil || cfg.CookieJar != "" {
+	if cfg.CookieJar != "" {
 		_ = writeCookieJar(cfg.CookieJar, resp)
 	}
 
 	if cfg.RemoteName {
-		fname := remoteFileName(cfg.RequestURL)
-		f, ferr := os.Create(fname)
-		if ferr != nil {
-			return fmt.Errorf("failed to create output file %s: %w", fname, ferr)
-		}
-		defer func() {
-			_ = f.Close()
-		}()
-
-		if responseBody != nil {
-			if _, cerr := io.Copy(f, responseBody); cerr != nil {
-				return fmt.Errorf("failed to write to %s: %w", fname, cerr)
-			}
-		}
-
-		return nil
+		return writeRemoteName(cfg, responseBody)
 	}
 
 	out.Write(resp, responseBody, cfg)
@@ -227,6 +183,74 @@ func Run(cfg *config.Config, out *output.Output) error {
 	// curl does.
 	if cfg.WriteOut != "" {
 		fmt.Print(renderWriteOut(cfg.WriteOut, resp, started))
+	}
+
+	return nil
+}
+
+// responseBodyFor returns the reader the body should be written from, or nil
+// when the body cannot be read to completion.
+func responseBodyFor(cfg *config.Config, req *http.Request, resp *http.Response) io.Reader {
+	if req.Method == http.MethodHead {
+		return nil
+	}
+
+	// Response body is only written when we're sure that it is there and can
+	// be fully read.
+	if resp.ProtoMajor >= 2 ||
+		// Content length guarantees that the response can be fully read.
+		resp.ContentLength > 0 ||
+		// Transfer-Encoding also guarantees that it's clear when body is
+		// finished.
+		len(resp.TransferEncoding) > 0 ||
+		// OHTTP responses may not have any headers apart from content-type,
+		// but they contain the full body right away.
+		cfg.OHTTPGatewayURL != nil ||
+		// When Connection: close we must read the body until the connection is
+		// closed.
+		resp.Header.Get("Connection") == "close" {
+		return resp.Body
+	}
+
+	return nil
+}
+
+// drainWebSocket sends the configured payload as one frame and returns the
+// server's reply.  It falls back to the passed-in body when nothing is sent.
+func drainWebSocket(cfg *config.Config, wsConn io.ReadWriteCloser, fallback io.Reader) io.Reader {
+	payload := client.BodyData(cfg)
+	if payload == "" {
+		return fallback
+	}
+
+	if _, err := wsConn.Write([]byte(payload)); err != nil {
+		return fallback
+	}
+
+	b, err := io.ReadAll(wsConn)
+	if err != nil {
+		return fallback
+	}
+
+	return io.NopCloser(bytes.NewReader(b))
+}
+
+// writeRemoteName writes the body to a file named after the URL path
+// (-O/--remote-name).
+func writeRemoteName(cfg *config.Config, responseBody io.Reader) error {
+	fname := remoteFileName(cfg.RequestURL)
+	f, err := os.Create(fname) //nolint:gosec // G703: remoteFileName strips directories
+	if err != nil {
+		return fmt.Errorf("failed to create output file %s: %w", fname, err)
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+
+	if responseBody != nil {
+		if _, err = io.Copy(f, responseBody); err != nil {
+			return fmt.Errorf("failed to write to %s: %w", fname, err)
+		}
 	}
 
 	return nil
@@ -280,15 +304,17 @@ func writeCookieJar(fname string, resp *http.Response) (err error) {
 			continue
 		}
 		secure := strings.Contains(strings.ToLower(sc), "secure")
-		b.WriteString(fmt.Sprintf("%s\tFALSE\t/\t%s\t0\t%s\t%s\n",
+		//nolint:gosec // G705: written to a Netscape cookie file, never HTML
+		fmt.Fprintf(&b, "%s\tFALSE\t/\t%s\t0\t%s\t%s\n",
 			host,
 			secureFlag(secure),
 			kv[0],
 			kv[1],
-		))
+		)
 	}
 
-	return os.WriteFile(fname, []byte(b.String()), 0o644)
+	//nolint:gosec // G703: fname is the operator's -c path, not remote input
+	return os.WriteFile(fname, []byte(b.String()), 0o600)
 }
 
 // secureFlag converts a boolean to the Netscape cookie file secure column.
@@ -302,11 +328,17 @@ func secureFlag(secure bool) string {
 
 // remoteFileName derives the -O/--remote-name output filename from the URL
 // path: last path segment, defaulting to the hostname.
+// remoteFileName returns the file name to write to for -O/--remote-name: the
+// last path segment, sanitized so a URL cannot escape the working directory.
 func remoteFileName(u *url.URL) (fname string) {
 	trimmed := strings.Trim(u.Path, "/")
 	if trimmed != "" {
 		segs := strings.Split(trimmed, "/")
-		fname = segs[len(segs)-1]
+		// filepath.Base strips any directory component ("..", "/", "\"), so
+		// the result always names a file in the current directory.
+		if base := filepath.Base(segs[len(segs)-1]); base != "." && base != ".." && base != string(filepath.Separator) {
+			fname = base
+		}
 	}
 	if fname == "" {
 		fname = u.Hostname()

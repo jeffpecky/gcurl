@@ -240,7 +240,7 @@ func (t *uTransport) roundTripTLS(r *http.Request) (*http.Response, error) {
 		if u, ok := conn.(*utls.UConn); ok {
 			st := u.ConnectionState()
 			t.d.out.CurlInfo("Connected to %s (%s) port %s", r.URL.Hostname(), conn.RemoteAddr(), portOr443(r.URL))
-			t.d.out.CurlInfo("ALPN: server accepted h2 (%s)", tls.VersionName(uint16(st.Version)))
+			t.d.out.CurlInfo("ALPN: server accepted h2 (%s)", tls.VersionName(st.Version))
 		}
 
 		// If the active profile carries an HTTP/2 fingerprint, use the
@@ -316,7 +316,11 @@ func (t *uTransport) profileHeaderOrder() []string {
 // roundTripH2Fingerprint sends the request over the established TLS conn
 // using the fingerprint-exact framer and converts the response back to
 // *http.Response.
-func (t *uTransport) roundTripH2Fingerprint(conn net.Conn, r *http.Request, fp *profile.H2FingerprintSpec) (*http.Response, error) {
+func (t *uTransport) roundTripH2Fingerprint(
+	conn net.Conn,
+	r *http.Request,
+	fp *profile.H2FingerprintSpec,
+) (*http.Response, error) {
 	var body []byte
 	if r.Body != nil {
 		var err error
@@ -491,13 +495,7 @@ func (t *uTransport) httpBaseRoundTrip(r *http.Request) (*http.Response, error) 
 	return tr.RoundTrip(r)
 }
 
-// h1RoundConn is a net.Conn wrapper that reuses an already-established TLS
-// connection with an http.Transport.
-type h1RoundConn struct {
-	net.Conn
-}
-
-// RoundTrip performs an HTTP/1.1 request over the pre-established TLS conn.
+// h1RoundTrip performs an HTTP/1.1 request over the pre-established TLS conn.
 func h1RoundTrip(conn net.Conn, r *http.Request) (*http.Response, error) {
 	tr := &http.Transport{
 		DisableCompression: true,
@@ -505,7 +503,7 @@ func h1RoundTrip(conn net.Conn, r *http.Request) (*http.Response, error) {
 		// Must hand the conn over via DialTLSContext: for https URLs the
 		// transport wraps DialContext conns in its own tls.Client, which
 		// would double the TLS layer.
-		DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+		DialTLSContext: func(context.Context, string, string) (net.Conn, error) {
 			return conn, nil
 		},
 	}

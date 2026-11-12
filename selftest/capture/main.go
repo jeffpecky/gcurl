@@ -32,7 +32,7 @@ func main() {
 	}
 
 	var stdout, stderr bytes.Buffer
-	cmd := exec.Command(*bin, "--impersonate", *profileName, *endpoint)
+	cmd := exec.Command(*bin, "--impersonate", *profileName, *endpoint) //nolint:gosec // operator-supplied binary
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
@@ -80,7 +80,8 @@ func main() {
 	if ja3 := stableJA3(*bin, *profileName, *endpoint); ja3 != "" {
 		out["ja3_hash"] = ja3
 	} else {
-		out["ja3_note"] = "unstable: browser shuffles extensions per handshake (real browser behavior); pinned by ja4 + akamai hash"
+		out["ja3_note"] = "unstable: browser shuffles extensions per handshake (real browser behavior); " +
+			"pinned by ja4 + akamai hash"
 	}
 
 	b, _ := json.MarshalIndent(out, "", "    ")
@@ -93,7 +94,7 @@ func stableJA3(bin, profileName, endpoint string) string {
 	hashes := make([]string, 0, 2)
 	for i := 0; i < 2; i++ {
 		var stdout bytes.Buffer
-		cmd := exec.Command(bin, "--impersonate", profileName, endpoint)
+		cmd := exec.Command(bin, "--impersonate", profileName, endpoint) //nolint:gosec // operator-supplied binary
 		cmd.Stdout = &stdout
 		if err := cmd.Run(); err != nil {
 			return ""

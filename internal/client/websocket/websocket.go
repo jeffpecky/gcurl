@@ -3,7 +3,7 @@ package websocket
 
 import (
 	"crypto/rand"
-	"crypto/sha1"
+	"crypto/sha1" //nolint:gosec // RFC 6455 section 4.2.2 mandates SHA-1 for Sec-WebSocket-Accept
 	"encoding/base64"
 	"io"
 	"net"
@@ -121,6 +121,7 @@ func IsWebSocketResponse(resp *http.Response) (ok bool) {
 
 // acceptKey derives the Sec-WebSocket-Accept value for a client key.
 func acceptKey(key string) string {
+	//nolint:gosec // RFC 6455 mandates SHA-1 here; it is not a security hash
 	h := sha1.Sum([]byte(key + acceptGUID))
 
 	return base64.StdEncoding.EncodeToString(h[:])

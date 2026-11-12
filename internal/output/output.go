@@ -131,8 +131,7 @@ func (o *Output) Debug(format string, args ...any) {
 		return
 	}
 
-	_, err := o.logFileWriter.WriteString(fmt.Sprintf(format, args...) + "\n")
-	if err != nil {
+	if _, err := fmt.Fprintf(o.logFileWriter, format+"\n", args...); err != nil {
 		panic(err)
 	}
 }
@@ -221,10 +220,10 @@ func responseToJSON(resp *http.Response, responseBody io.Reader, log io.Writer) 
 	var body []byte
 
 	if responseBody != nil {
-		body, err = io.ReadAll(responseBody)
-		if err != nil {
-			_, _ = fmt.Fprintf(log, "Failed to read response body: %v\n", err)
-			err = nil
+		var readErr error
+		body, readErr = io.ReadAll(responseBody)
+		if readErr != nil {
+			_, _ = fmt.Fprintf(log, "Failed to read response body: %v\n", readErr)
 		}
 	}
 
