@@ -25,9 +25,62 @@ type Options struct {
 	// DataBinary is like --data, data is sent as-is (no URL encoding).
 	DataBinary string `long:"data-binary" description:"Like --data, but sends the data as-is without further processing." value-name:"<data>"`
 
-	// Form is a list of multipart form fields (curl -F).  Only simple
-	// "name=value" pairs are supported (no @file uploads).
-	Form []string `short:"F" long:"form" description:"Send multipart form data. Supports basic \"name=value\" pairs (no @file uploads). Can be specified multiple times." value-name:"<name=value>"`
+	// DataURLEncode URL-encodes the given data before sending it.
+	DataURLEncode []string `long:"data-urlencode" description:"Like --data, but URL-encodes the data. Supports \"name=content\" (only content is encoded). Can be specified multiple times." value-name:"<data>"`
+
+	// JSON sends the data as JSON (--json).
+	JSON []string `long:"json" description:"Send the data as JSON. Sets Content-Type and Accept to application/json. Can be specified multiple times, the pieces are concatenated." value-name:"<data>"`
+
+	// UploadFile uploads the specified file (curl -T).
+	UploadFile string `short:"T" long:"upload-file" description:"Upload the specified file to the server (uses PUT unless -X is given). Use \"-\" to read from stdin." value-name:"<file>"`
+
+	// ContinueAt resumes a download at the given byte offset (curl -C).
+	ContinueAt string `short:"C" long:"continue-at" description:"Resume a download at the given byte offset. Use \"-\" to let gcurl find the offset from the existing output file (requires -O)." value-name:"<offset>"`
+
+	// Range requests the given byte range (curl -r).
+	Range string `short:"r" long:"range" description:"Retrieve only the given byte range, e.g. 0-99 or 500-." value-name:"<range>"`
+
+	// FormStrings is like -F but never interprets @file syntax (curl
+	// --form-string).
+	FormStrings []string `long:"form-string" description:"Like -F, but the value is taken literally (no @file or <file syntax). Can be specified multiple times." value-name:"<name=value>"`
+
+	// Fail makes gcurl exit with code 22 on HTTP errors >= 400 (curl -f).
+	Fail bool `short:"f" long:"fail" description:"Fail silently (no output) on HTTP errors. Exit code 22 is returned." optional:"yes" optional-value:"true"`
+
+	// Retry retries the request on transient errors (curl --retry).
+	Retry int `long:"retry" description:"Retry the request up to <num> times on transient errors (408, 429, 5xx, connection errors)." value-name:"<num>"`
+
+	// MaxRedirs limits the number of redirects followed with -L.
+	MaxRedirs int `long:"max-redirs" description:"Maximum number of redirects to follow with -L. -1 means unlimited. Default: 50." value-name:"<num>"`
+
+	// LimitRate caps the transfer rate in bytes per second (curl --limit-rate).
+	LimitRate string `long:"limit-rate" description:"Limit the transfer rate to the given speed, e.g. 100k, 1M." value-name:"<speed>"`
+
+	// CACert is a CA bundle used to verify the peer (curl --cacert).
+	CACert string `long:"cacert" description:"CA certificate file (PEM) used to verify the peer." value-name:"<file>"`
+
+	// Cert is a client certificate PEM file (curl --cert).
+	Cert string `long:"cert" description:"Client certificate file (PEM)." value-name:"<file>"`
+
+	// Key is the client certificate private key (curl --key). Defaults to the
+	// certificate file.
+	Key string `long:"key" description:"Private key file for --cert. Defaults to the --cert file." value-name:"<file>"`
+
+	// DumpHeader writes the response headers to a file (curl -D).
+	DumpHeader string `short:"D" long:"dump-header" description:"Write the received protocol headers to the specified file." value-name:"<file>"`
+
+	// Stderr redirects error/log output to a file (curl --stderr).
+	StderrPath string `long:"stderr" description:"Redirect all error and log output to the given file." value-name:"<file>"`
+
+	// Netrc reads credentials from ~/.netrc (curl -n).
+	Netrc bool `short:"n" long:"netrc" description:"Read credentials from ~/.netrc when -u is not given." optional:"yes" optional-value:"true"`
+
+	// ProxyUser overrides the proxy credentials (curl --proxy-user).
+	ProxyUser string `long:"proxy-user" description:"Proxy credentials as user:password, overriding --proxy embedded credentials." value-name:"<user:password>"`
+
+	// Form is a list of multipart form fields (curl -F).  "name=@file" uploads
+	// a file and "name=<file" embeds its contents.
+	Form []string `short:"F" long:"form" description:"Send multipart form data. \"name=@file\" uploads a file, \"name=<file\" sends its contents. Can be specified multiple times." value-name:"<name=value>"`
 
 	// Get makes the request use GET with the data appended to the URL query.
 	Get bool `short:"G" long:"get" description:"Put the post data in the URL and use GET." optional:"yes" optional-value:"true"`
@@ -36,7 +89,7 @@ type Options struct {
 	RemoteName bool `short:"O" long:"remote-name" description:"Write output to a file named as the remote file (from the URL)." optional:"yes" optional-value:"true"`
 
 	// Location makes the tool follow redirects.
-	Location bool `short:"L" long:"location" description:"Follow redirects (maximum 10 hops)." optional:"yes" optional-value:"true"`
+	Location bool `short:"L" long:"location" description:"Follow redirects (up to --max-redirs hops, 50 by default)." optional:"yes" optional-value:"true"`
 
 	// User is the user:password pair for basic authentication.
 	User string `short:"u" long:"user" description:"Server user and password for basic authentication." value-name:"<user:password>"`

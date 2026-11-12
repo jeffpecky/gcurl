@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/chris-wood/ohttp-go"
 	"github.com/jeffpecky/gcurl/internal/config"
@@ -29,6 +30,11 @@ var _ Transport = (*obliviousHTTPTransport)(nil)
 // Conn returns the last established connection using this transport.
 func (t *obliviousHTTPTransport) Conn() (conn net.Conn) {
 	return t.base.Conn()
+}
+
+// ConnectTime returns the last connection duration of the wrapped transport.
+func (t *obliviousHTTPTransport) ConnectTime() time.Duration {
+	return t.base.ConnectTime()
 }
 
 // RoundTrip implements the http.RoundTripper interface for

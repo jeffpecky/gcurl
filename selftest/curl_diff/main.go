@@ -42,6 +42,9 @@ func main() {
 		{"--max-time", "--max-time", "15", "/get"},
 		{"-i", "-i", "/get"},
 		{"-I HEAD", "-I", "/get"},
+		{"--json", "--json", `{"a":1}`, "/post"},
+		{"--data-urlencode", "--data-urlencode", "q=a b&c", "/post"},
+		{"--range", "--range", "0-99", "/get"},
 	}
 
 	failed := false
@@ -155,15 +158,23 @@ func compare(curlOut, ourOut string, caseArgs []string) (match bool, note string
 	curlLower := lowerKeys(curlHdrs)
 	ourLower := lowerKeys(ourHdrs)
 	uaExplicit := false
+	jsonExplicit := false
 	for _, a := range caseArgs {
 		if a == "-A" {
 			uaExplicit = true
 		}
+		if a == "--json" {
+			jsonExplicit = true
+		}
 	}
-	for _, h := range []string{"referer", "x-test", "x-other", "authorization", "content-type", "user-agent"} {
+	for _, h := range []string{"referer", "x-test", "x-other", "authorization", "content-type", "range", "user-agent", "accept"} {
 		cv, cok := curlLower[h]
 		ov, ook := ourLower[h]
 		if h == "user-agent" && !uaExplicit {
+			continue
+		}
+		// Browsers send a default Accept; only --json pins it.
+		if h == "accept" && !jsonExplicit {
 			continue
 		}
 		if cok != ook || (cok && fmt.Sprint(cv) != fmt.Sprint(ov)) {

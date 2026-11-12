@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/jeffpecky/gcurl/internal/client/tlsh2"
 	"github.com/jeffpecky/gcurl/internal/config"
@@ -28,6 +29,10 @@ type Transport interface {
 
 	// Conn returns the last established connection using this transport.
 	Conn() (conn net.Conn)
+
+	// ConnectTime returns how long the last connection (including the TLS
+	// handshake) took.  It backs the --write-out timing variables.
+	ConnectTime() time.Duration
 }
 
 // transport is a wrapper over regular http.RoundTripper that is used to add
@@ -43,6 +48,11 @@ var _ Transport = (*transport)(nil)
 // Conn returns the last established connection using this transport.
 func (t *transport) Conn() (conn net.Conn) {
 	return t.d.conn
+}
+
+// ConnectTime returns how long the last connection took.
+func (t *transport) ConnectTime() time.Duration {
+	return t.d.ConnectTime()
 }
 
 // RoundTrip implements the http.RoundTripper interface for *transport.
@@ -418,15 +428,16 @@ func (t *uTransport) roundTripH2Fingerprint(
 		Request:       r,
 	}
 	for _, f := range h2resp.HeaderFields {
+		// Pseudo-headers (":status") are not real response headers; the status
+		// is already on resp.StatusCode.  curl never shows them.
+		if strings.HasPrefix(f.Name, ":") {
+			continue
+		}
 		resp.Header.Add(f.Name, f.Value)
 	}
 
 	return resp, nil
 }
-
-// maxRedirects is the redirect limit matching curl's default (-L follows up
-// to 10 hops... actually 50; we use curl-impersonate's default).
-const maxRedirects = 10
 
 // followRedirects follows 3xx responses by re-issuing the request to the
 // Location target.  Only https and http schemes are supported.  Redirects
@@ -435,8 +446,19 @@ const maxRedirects = 10
 func followRedirects(t *uTransport, firstReq *http.Request, firstResp *http.Response) (*http.Response, error) {
 	resp := firstResp
 	req := firstReq
+	limit := t.d.cfg.MaxRedirs
+	if limit == 0 {
+		// Config built without ParseConfig (tests, library use) still gets
+		// curl's default.
+		limit = config.DefaultMaxRedirs
+	}
+	// -1 means unlimited; the loop still has to terminate on a redirect cycle,
+	// so unlimited is bounded by curl's own practical cap.
+	if limit < 0 {
+		limit = curlUnlimitedRedirects
+	}
 
-	for redirects := 0; redirects < maxRedirects; redirects++ {
+	for redirects := 0; redirects < limit; redirects++ {
 		loc := resp.Header.Get("Location")
 		resp.Body.Close()
 
@@ -480,8 +502,12 @@ func followRedirects(t *uTransport, firstReq *http.Request, firstResp *http.Resp
 
 	resp.Body.Close()
 
-	return nil, fmt.Errorf("too many redirects (limit %d)", maxRedirects)
+	return nil, fmt.Errorf("too many redirects (limit %d)", limit)
 }
+
+// curlUnlimitedRedirects bounds --max-redirs -1 ("unlimited") so a redirect
+// cycle still terminates.
+const curlUnlimitedRedirects = 10000
 
 // httpBaseRoundTrip performs a plain HTTP request using the client dialer
 // (which applies proxy/connect-to/resolve logic to the TCP dial).
@@ -522,7 +548,9 @@ func getMethod(cfg *config.Config) (method string) {
 		method = cfg.Method
 	} else if cfg.Head {
 		method = http.MethodHead
-	} else if BodyData(cfg) != "" || len(cfg.Form) > 0 {
+	} else if cfg.UploadFile != "" {
+		method = http.MethodPut
+	} else if BodyData(cfg) != "" || len(cfg.Form) > 0 || len(cfg.FormStrings) > 0 || len(cfg.JSON) > 0 {
 		method = http.MethodPost
 	} else {
 		method = http.MethodGet

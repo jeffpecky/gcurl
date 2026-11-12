@@ -10,6 +10,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/jeffpecky/gcurl/internal/config"
@@ -60,6 +62,31 @@ func NewOutputWithWriters(dataWriter Writer, logWriter Writer, verbose bool, jso
 		verbose:        verbose,
 		jsonOutput:     jsonOutput,
 	}
+}
+
+// SetLogFile redirects all log and error output to path (--stderr).
+func (o *Output) SetLogFile(path string) (err error) {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+	if err != nil {
+		return fmt.Errorf("cannot open log file %s: %w", path, err)
+	}
+
+	o.logFileWriter = f
+
+	return nil
+}
+
+// SetAppendOutput makes the output file append instead of overwriting, which
+// is what -C/--continue-at needs to resume a download.
+func (o *Output) SetAppendOutput(path string) (err error) {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o644)
+	if err != nil {
+		return fmt.Errorf("cannot open output file %s: %w", path, err)
+	}
+
+	o.dataFileWriter = f
+
+	return nil
 }
 
 // Write writes received data to the output path (or stdout if not specified).
@@ -142,15 +169,33 @@ func ResponseToString(resp *http.Response) (str string) {
 		"%s %s\r\n%s",
 		resp.Proto,
 		resp.Status,
-		headersToString(resp.Header),
+		headersToString(resp.Header, resp.ProtoMajor),
 	)
 }
 
-// headersToString converts HTTP headers to a string.
-func headersToString(headers http.Header) (str string) {
-	for key, values := range headers {
-		for _, value := range values {
-			str = str + fmt.Sprintf("%s: %s\r\n", key, value)
+// HeaderLines renders a response's headers the way curl does: h2 names
+// lowercase, sorted for determinism, CRLF terminated (used by -D too).
+func HeaderLines(resp *http.Response) string {
+	return headersToString(resp.Header, resp.ProtoMajor)
+}
+
+// headersToString converts HTTP headers to a string.  curl prints h2 header
+// names lowercase (that is how they travel on the wire) and both protocols in
+// a stable order, so the same response always renders the same bytes.
+func headersToString(headers http.Header, protoMajor int) (str string) {
+	names := make([]string, 0, len(headers))
+	for key := range headers {
+		names = append(names, key)
+	}
+	sort.Strings(names)
+
+	for _, key := range names {
+		name := key
+		if protoMajor == 2 {
+			name = strings.ToLower(name)
+		}
+		for _, value := range headers[key] {
+			str = str + fmt.Sprintf("%s: %s\r\n", name, value)
 		}
 	}
 

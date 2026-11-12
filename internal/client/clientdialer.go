@@ -4,9 +4,11 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"time"
 
 	"github.com/jeffpecky/gcurl/internal/client/cfcrypto"
@@ -38,6 +40,11 @@ type clientDialer struct {
 	// here: http3.Transport owns them and Conn() is only used for WebSocket,
 	// which is TCP-only.
 	conn net.Conn
+
+	// connectTime is how long the last connection (including the TLS
+	// handshake) took.  It backs %{time_appconnect} and %{time_connect} in
+	// --write-out.
+	connectTime time.Duration
 }
 
 // newDialer creates a new instance of the clientDialer.
@@ -52,10 +59,15 @@ func newDialer(hostname string, cfg *config.Config, out *output.Output) (d *clie
 		return nil, err
 	}
 
+	tlsConfig, err := createTLSConfig(hostname, cfg, out)
+	if err != nil {
+		return nil, err
+	}
+
 	return &clientDialer{
 		cfg:       cfg,
 		out:       out,
-		tlsConfig: createTLSConfig(hostname, cfg, out),
+		tlsConfig: tlsConfig,
 		resolver:  resolver,
 		dial:      dial,
 	}, nil
@@ -64,6 +76,9 @@ func newDialer(hostname string, cfg *config.Config, out *output.Output) (d *clie
 // DialTLSContext establishes a new TLS connection to the specified address.
 func (d *clientDialer) DialTLSContext(_ context.Context, network, addr string) (c net.Conn, err error) {
 	d.out.Debug("Connecting to %s over TLS", addr)
+
+	started := time.Now()
+	defer func() { d.connectTime = time.Since(started) }()
 
 	conn, err := d.dial(network, addr)
 	if err != nil {
@@ -84,9 +99,17 @@ func (d *clientDialer) DialTLSContext(_ context.Context, network, addr string) (
 func (d *clientDialer) DialContext(_ context.Context, network, addr string) (c net.Conn, err error) {
 	d.out.Debug("Connecting to %s", addr)
 
+	started := time.Now()
 	d.conn, err = d.dial(network, addr)
+	d.connectTime = time.Since(started)
 
 	return d.conn, err
+}
+
+// ConnectTime returns how long the last connection took.  It backs the
+// %{time_connect}/%{time_appconnect} --write-out variables.
+func (d *clientDialer) ConnectTime() time.Duration {
+	return d.connectTime
 }
 
 // DialQUIC establishes a new QUIC connection and is supposed to be used by
@@ -146,6 +169,21 @@ func (d *clientDialer) handshakeTLS(conn net.Conn) (tlsConn net.Conn, err error)
 		InsecureSkipVerify: d.tlsConfig.InsecureSkipVerify,
 		RootCAs:            d.tlsConfig.RootCAs,
 		Rand:               d.tlsConfig.Rand,
+	}
+
+	// --cert/--key: uTLS has its own Certificate type, so the pair is loaded
+	// again through uTLS's loader (createTLSConfig already validated the
+	// paths, so a failure here is unexpected).
+	if d.cfg.Cert != "" {
+		keyFile := d.cfg.Key
+		if keyFile == "" {
+			keyFile = d.cfg.Cert
+		}
+		cert, cErr := utls.LoadX509KeyPair(d.cfg.Cert, keyFile)
+		if cErr != nil {
+			return nil, fmt.Errorf("cannot load client certificate %s: %w", d.cfg.Cert, cErr)
+		}
+		uCfg.Certificates = []utls.Certificate{cert}
 	}
 	uConn := utls.UClient(conn, uCfg, helloID)
 
@@ -225,7 +263,6 @@ func createDialFunc(
 
 		dial = proxyDialer.Dial
 	}
-
 	if len(cfg.ConnectTo) > 0 {
 		dial, err = connectto.CreateDialFunc(cfg.ConnectTo, dial, out)
 		if err != nil {
@@ -274,7 +311,7 @@ func (r *tlsRandomReader) Read(p []byte) (n int, err error) {
 }
 
 // createTLSConfig creates TLS config based on the configuration.
-func createTLSConfig(hostname string, cfg *config.Config, out *output.Output) (tlsConfig *tls.Config) {
+func createTLSConfig(hostname string, cfg *config.Config, out *output.Output) (tlsConfig *tls.Config, err error) {
 	tlsConfig = &tls.Config{
 		ServerName: hostname,
 		MinVersion: cfg.TLSMinVersion,
@@ -293,6 +330,13 @@ func createTLSConfig(hostname string, cfg *config.Config, out *output.Output) (t
 
 	if cfg.Insecure {
 		tlsConfig.InsecureSkipVerify = true
+	}
+
+	if err = applyClientCert(tlsConfig, cfg); err != nil {
+		return nil, err
+	}
+	if err = applyCACert(tlsConfig, cfg); err != nil {
+		return nil, err
 	}
 
 	if len(cfg.TLSRandom) == 32 {
@@ -326,5 +370,52 @@ func createTLSConfig(hostname string, cfg *config.Config, out *output.Output) (t
 		tlsConfig.NextProtos = []string{"h2", "http/1.1"}
 	}
 
-	return tlsConfig
+	return tlsConfig, nil
+}
+
+// applyClientCert loads the --cert/--key pair into the TLS config.  The key
+// defaults to the certificate file, matching curl.
+func applyClientCert(tlsConfig *tls.Config, cfg *config.Config) error {
+	if cfg.Cert == "" {
+		return nil
+	}
+
+	keyFile := cfg.Key
+	if keyFile == "" {
+		keyFile = cfg.Cert
+	}
+
+	cert, err := tls.LoadX509KeyPair(cfg.Cert, keyFile)
+	if err != nil {
+		return fmt.Errorf("cannot load client certificate %s: %w", cfg.Cert, err)
+	}
+
+	tlsConfig.Certificates = []tls.Certificate{cert}
+
+	return nil
+}
+
+// applyCACert loads a custom CA bundle from --cacert into the TLS config's root
+// pool, keeping the system pool as the fallback.
+func applyCACert(tlsConfig *tls.Config, cfg *config.Config) error {
+	if cfg.CACert == "" {
+		return nil
+	}
+
+	b, err := os.ReadFile(cfg.CACert)
+	if err != nil {
+		return fmt.Errorf("cannot read CA bundle %s: %w", cfg.CACert, err)
+	}
+
+	pool, err := x509.SystemCertPool()
+	if err != nil || pool == nil {
+		pool = x509.NewCertPool()
+	}
+	if !pool.AppendCertsFromPEM(b) {
+		return fmt.Errorf("no certificates found in CA bundle %s", cfg.CACert)
+	}
+
+	tlsConfig.RootCAs = pool
+
+	return nil
 }

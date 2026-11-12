@@ -6,7 +6,9 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/jeffpecky/gcurl/internal/appversion"
@@ -106,17 +108,45 @@ func applyProfileDefaults(req *http.Request, cfg *config.Config) {
 }
 
 // createBody creates body stream if it's required by the command-line
-// arguments.  Priority: -F (multipart), --data-raw, --data-binary, --data.
-// Returns the body reader plus an optional Content-Type that must be set on
-// the request (multipart boundary).
+// arguments.  Priority: -T (upload), --json, -F (multipart), --data-raw,
+// --data-binary, --data-urlencode, --data.  Returns the body reader plus an
+// optional Content-Type that must be set on the request.
 func createBody(cfg *config.Config) (body io.Reader, contentType string, err error) {
-	if len(cfg.Form) > 0 {
+	if cfg.UploadFile != "" {
+		// -T/--upload-file: the file becomes the request body verbatim.
+		if cfg.UploadFile == "-" {
+			return os.Stdin, "", nil
+		}
+
+		b, rErr := os.ReadFile(cfg.UploadFile)
+		if rErr != nil {
+			return nil, "", fmt.Errorf("cannot read upload file %s: %w", cfg.UploadFile, rErr)
+		}
+
+		return bytes.NewReader(b), "", nil
+	}
+
+	if len(cfg.JSON) > 0 {
+		return bytes.NewBufferString(joinData(cfg.JSON)), "application/json", nil
+	}
+
+	if fields := len(cfg.Form) + len(cfg.FormStrings); fields > 0 {
 		buf := &bytes.Buffer{}
 		w := multipart.NewWriter(buf)
+		// --form-string values are literal; -F values interpret @file/<file.
 		for _, field := range cfg.Form {
 			name, value, _ := strings.Cut(field, "=")
 			if name == "" {
 				return nil, "", fmt.Errorf("invalid -F field %q, expected name=value", field)
+			}
+			if uErr := writeFormField(w, name, value); uErr != nil {
+				return nil, "", uErr
+			}
+		}
+		for _, field := range cfg.FormStrings {
+			name, value, _ := strings.Cut(field, "=")
+			if name == "" {
+				return nil, "", fmt.Errorf("invalid --form-string %q, expected name=value", field)
 			}
 			if err := w.WriteField(name, value); err != nil {
 				return nil, "", err
@@ -129,13 +159,7 @@ func createBody(cfg *config.Config) (body io.Reader, contentType string, err err
 		return buf, w.FormDataContentType(), nil
 	}
 
-	data := cfg.Data
-	if cfg.DataRaw != "" {
-		data = cfg.DataRaw
-	} else if cfg.DataBinary != "" {
-		data = cfg.DataBinary
-	}
-
+	data := BodyData(cfg)
 	if data == "" {
 		return nil, "", nil
 	}
@@ -143,8 +167,42 @@ func createBody(cfg *config.Config) (body io.Reader, contentType string, err err
 	return bytes.NewBufferString(data), "", nil
 }
 
+// joinData concatenates repeated data pieces the way curl does for --json.
+func joinData(pieces []string) string {
+	return strings.Join(pieces, "")
+}
+
+// writeFormField writes one multipart part.  "name=@file" uploads the file and
+// "name=<file" embeds its contents; --form-string values never reach here
+// because they are passed through as-is by createBody.
+func writeFormField(w *multipart.Writer, name, value string) error {
+	if strings.HasPrefix(value, "@") || strings.HasPrefix(value, "<") {
+		path := value[1:]
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("cannot read form file %s: %w", path, err)
+		}
+
+		if strings.HasPrefix(value, "@") {
+			// @file: send with the file's basename as the filename.
+			part, cErr := w.CreateFormFile(name, filepath.Base(path))
+			if cErr != nil {
+				return cErr
+			}
+			_, err = part.Write(b)
+
+			return err
+		}
+
+		// <file: send as a plain field value.
+		return w.WriteField(name, string(b))
+	}
+
+	return w.WriteField(name, value)
+}
+
 // BodyData returns the effective request body data (--data/--data-raw/
-// --data-binary).
+// --data-binary/--data-urlencode).
 func BodyData(cfg *config.Config) (data string) {
 	if cfg.DataRaw != "" {
 		return cfg.DataRaw
@@ -152,8 +210,69 @@ func BodyData(cfg *config.Config) (data string) {
 	if cfg.DataBinary != "" {
 		return cfg.DataBinary
 	}
+	if len(cfg.DataURLEncode) > 0 {
+		return urlEncodeData(cfg.DataURLEncode)
+	}
 
 	return cfg.Data
+}
+
+// urlEncodeData implements --data-urlencode: "name=content" encodes only the
+// content, bare "content" encodes the whole string, and "=content" sends an
+// encoded value under an empty name.
+func urlEncodeData(pieces []string) string {
+	encoded := make([]string, 0, len(pieces))
+	for _, piece := range pieces {
+		if name, value, ok := strings.Cut(piece, "="); ok {
+			encoded = append(encoded, name+"="+url.QueryEscape(value))
+		} else {
+			encoded = append(encoded, url.QueryEscape(piece))
+		}
+	}
+
+	return strings.Join(encoded, "&")
+}
+
+// resumeOffset implements -C -: the offset is the current size of the output
+// file, so the transfer continues where it stopped.  It returns false when
+// there is no output file to measure.
+func resumeOffset(cfg *config.Config) (offset int64, ok bool) {
+	fname := cfg.OutputPath
+	if fname == "" && cfg.RemoteName {
+		fname = filepath.Base(cfg.RequestURL.Path)
+	}
+	if fname == "" {
+		return 0, false
+	}
+
+	fi, err := os.Stat(fname) //nolint:gosec // G703: fname is the operator's own -o/-O path
+	if err != nil || fi.Size() == 0 {
+		return 0, false
+	}
+
+	return fi.Size(), true
+}
+
+// addRangeHeader implements -r/--range and -C/--continue-at.
+func addRangeHeader(req *http.Request, cfg *config.Config) {
+	if req.Header.Get("Range") != "" {
+		return
+	}
+
+	if cfg.Range != "" {
+		req.Header.Set("Range", "bytes="+cfg.Range)
+
+		return
+	}
+
+	switch {
+	case cfg.ContinueAt == "-":
+		if offset, ok := resumeOffset(cfg); ok {
+			req.Header.Set("Range", fmt.Sprintf("bytes=%d-", offset))
+		}
+	case cfg.ContinueAt != "":
+		req.Header.Set("Range", "bytes="+cfg.ContinueAt+"-")
+	}
 }
 
 // addBodyHeaders adds necessary HTTP headers if they're required by the
@@ -162,10 +281,23 @@ func BodyData(cfg *config.Config) (data string) {
 func addBodyHeaders(req *http.Request, cfg *config.Config) {
 	data := BodyData(cfg)
 	if data != "" && !websocket.IsWebSocket(cfg.RequestURL) {
-		if req.Header.Get("Content-Type") == "" && cfg.DataBinary == "" {
+		if req.Header.Get("Content-Type") == "" && cfg.DataBinary == "" && len(cfg.JSON) == 0 {
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		}
 	}
+
+	// --json: curl sets both Content-Type and Accept.
+	if len(cfg.JSON) > 0 {
+		if req.Header.Get("Content-Type") == "" {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		if req.Header.Get("Accept") == "" {
+			req.Header.Set("Accept", "application/json")
+		}
+	}
+
+	// -r/--range and -C/--continue-at both set Range; first one wins.
+	addRangeHeader(req, cfg)
 
 	// --compressed: ask for a compressed response.
 	if cfg.Compressed && req.Header.Get("Accept-Encoding") == "" {

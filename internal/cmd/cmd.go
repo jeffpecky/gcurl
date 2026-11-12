@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -70,6 +71,10 @@ func exitCodeFor(err error) (code int) {
 	errStr := err.Error()
 
 	switch {
+	// 22: HTTP page not retrieved (-f/--fail).
+	case errors.Is(err, errFail):
+		return 22
+
 	// 6: couldn't resolve host.
 	case strings.Contains(errStr, "no such host"),
 		strings.Contains(errStr, "NXDOMAIN"):
@@ -110,6 +115,23 @@ func Run(cfg *config.Config, out *output.Output) error {
 
 	started := time.Now()
 
+	var err error
+
+	// --stderr: redirect all log/error output to a file.
+	if cfg.StderrPath != "" {
+		if err = out.SetLogFile(cfg.StderrPath); err != nil {
+			return err
+		}
+	}
+
+	// -C/--continue-at: resume appends to the existing output file and the
+	// request carries a Range header (added in client.NewRequest).
+	if cfg.ContinueAt != "" && cfg.OutputPath != "" {
+		if err = out.SetAppendOutput(cfg.OutputPath); err != nil {
+			return err
+		}
+	}
+
 	transport, err := client.NewTransport(cfg, out)
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP transport: %w", err)
@@ -132,7 +154,7 @@ func Run(cfg *config.Config, out *output.Output) error {
 	// -v request/response dumps are emitted by the transport, which is the
 	// first place the negotiated protocol is known (curl prints the real one).
 
-	resp, err := transport.RoundTrip(req)
+	resp, err := doRequest(transport, req, cfg)
 	if err != nil {
 		return fmt.Errorf("failed to make request: %w", err)
 	}
@@ -140,6 +162,22 @@ func Run(cfg *config.Config, out *output.Output) error {
 	defer func(body io.ReadCloser) {
 		_ = body.Close()
 	}(resp.Body)
+
+	// -f/--fail: HTTP errors become exit code 22 and the body is not written.
+	// curl still prints the headers when -i/-D is in play.
+	if failErr := handleFail(cfg, out, resp); failErr != nil {
+		return failErr
+	}
+
+	// --limit-rate: throttle the body read.
+	resp.Body = limitRate(cfg, resp.Body)
+
+	// -D/--dump-header: write the headers to a file.
+	if cfg.DumpHeader != "" {
+		if err = dumpHeaders(cfg.DumpHeader, resp); err != nil {
+			return err
+		}
+	}
 
 	responseBody := responseBodyFor(cfg, req, resp)
 
@@ -182,7 +220,7 @@ func Run(cfg *config.Config, out *output.Output) error {
 	// -w/--write-out: print the formatted string after the transfer, like
 	// curl does.
 	if cfg.WriteOut != "" {
-		fmt.Print(renderWriteOut(cfg.WriteOut, resp, started))
+		fmt.Print(renderWriteOut(cfg.WriteOut, resp, started, transport.ConnectTime()))
 	}
 
 	return nil
@@ -258,30 +296,37 @@ func writeRemoteName(cfg *config.Config, responseBody io.Reader) error {
 
 // renderWriteOut expands curl's --write-out variables.  Supported:
 // %{http_code}, %{url_effective}, %{time_total}, %{time_connect},
-// %{size_download}; \n, \r, \t literals.
-func renderWriteOut(format string, resp *http.Response, started time.Time) (s string) {
+// %{time_appconnect}, %{size_download}, %{response_code}, %{scheme},
+// %{remote_ip}, %{remote_port}, %{content_type}, %{http_version};
+// \n, \r, \t literals.
+func renderWriteOut(format string, resp *http.Response, started time.Time, connectTime time.Duration) (s string) {
 	total := time.Since(started).Seconds()
-	connect := 0.0
-	if resp.TLS != nil {
-		// TLS handshake time is not tracked separately; report it as part of
-		// the connection time (curl's time_connect is TCP only — we don't
-		// have that signal here, so use 0 unless we know better).
-		connect = 0.0
+	size := int64(0)
+	if resp.ContentLength > 0 {
+		size = resp.ContentLength
 	}
-	size := 0
-	if resp.Body != nil {
-		// Body size unknown post-read; use ContentLength when available.
-		if resp.ContentLength > 0 {
-			size = int(resp.ContentLength)
+
+	remoteIP, remotePort := "0.0.0.0", "0"
+	if resp.Request != nil && resp.Request.URL != nil {
+		if host := resp.Request.URL.Hostname(); net.ParseIP(host) != nil {
+			remoteIP = host
+			remotePort = resp.Request.URL.Port()
 		}
 	}
 
 	replacer := strings.NewReplacer(
 		"%{http_code}", fmt.Sprintf("%03d", resp.StatusCode),
+		"%{response_code}", fmt.Sprintf("%03d", resp.StatusCode),
 		"%{url_effective}", resp.Request.URL.String(),
 		"%{time_total}", fmt.Sprintf("%.6f", total),
-		"%{time_connect}", fmt.Sprintf("%.6f", connect),
+		"%{time_connect}", fmt.Sprintf("%.6f", connectTime.Seconds()),
+		"%{time_appconnect}", fmt.Sprintf("%.6f", connectTime.Seconds()),
 		"%{size_download}", fmt.Sprintf("%d", size),
+		"%{scheme}", resp.Request.URL.Scheme,
+		"%{http_version}", fmt.Sprintf("%d", resp.ProtoMajor),
+		"%{content_type}", resp.Header.Get("Content-Type"),
+		"%{remote_ip}", remoteIP,
+		"%{remote_port}", remotePort,
 		"\\n", "\n",
 		"\\r", "\r",
 		"\\t", "\t",

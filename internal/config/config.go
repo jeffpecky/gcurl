@@ -4,10 +4,14 @@ package config
 import (
 	"crypto/tls"
 	"encoding/base64"
+	"errors"
 	"fmt"
+	"io/fs"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -37,6 +41,58 @@ type Config struct {
 
 	// DataBinary is like Data but sent as-is.
 	DataBinary string
+
+	// DataURLEncode is data that must be URL-encoded before sending.
+	DataURLEncode []string
+
+	// JSON is the --json payload pieces (concatenated, sent as JSON).
+	JSON []string
+
+	// UploadFile is the -T/--upload-file path, or "-" for stdin.
+	UploadFile string
+
+	// ContinueAt is the -C/--continue-at offset ("-" means auto).
+	ContinueAt string
+
+	// Range is the -r/--range byte range.
+	Range string
+
+	// FormStrings are --form-string fields (never @file interpreted).
+	FormStrings []string
+
+	// Fail enables -f/--fail (exit code 22 on HTTP >= 400).
+	Fail bool
+
+	// Retry is the number of retries on transient errors.
+	Retry int
+
+	// MaxRedirs is the redirect limit for -L. -1 means unlimited.  Default 50,
+	// matching curl.
+	MaxRedirs int
+
+	// LimitRate is the transfer rate cap in bytes per second, 0 = unlimited.
+	LimitRate int64
+
+	// CACert is the CA bundle path (--cacert).
+	CACert string
+
+	// Cert is the client certificate path (--cert).
+	Cert string
+
+	// Key is the client private key path (--key).
+	Key string
+
+	// DumpHeader is the -D/--dump-header output file.
+	DumpHeader string
+
+	// StderrPath redirects logs/errors to a file (--stderr).
+	StderrPath string
+
+	// Netrc enables reading ~/.netrc credentials (curl -n).
+	Netrc bool
+
+	// ProxyUser overrides proxy credentials (--proxy-user).
+	ProxyUser string
 
 	// Form is the list of multipart form fields (curl -F).
 	Form []string
@@ -267,6 +323,22 @@ func ParseConfig(args []string) (cfg *Config, err error) {
 		ECHGrease:      opts.ECHGrease,
 		IPv4:           opts.IPv4,
 		IPv6:           opts.IPv6,
+		DataURLEncode:  opts.DataURLEncode,
+		JSON:           opts.JSON,
+		UploadFile:     opts.UploadFile,
+		ContinueAt:     opts.ContinueAt,
+		Range:          opts.Range,
+		FormStrings:    opts.FormStrings,
+		Fail:           opts.Fail,
+		Retry:          opts.Retry,
+		MaxRedirs:      opts.MaxRedirs,
+		CACert:         opts.CACert,
+		Cert:           opts.Cert,
+		Key:            opts.Key,
+		DumpHeader:     opts.DumpHeader,
+		StderrPath:     opts.StderrPath,
+		Netrc:          opts.Netrc,
+		ProxyUser:      opts.ProxyUser,
 		TLSServerName:  opts.TLSServerName,
 		RawOptions:     opts,
 	}
@@ -281,11 +353,49 @@ func ParseConfig(args []string) (cfg *Config, err error) {
 		cfg.RequestURL.Scheme = "http"
 	}
 
+	// --max-redirs defaults to curl's 50; -1 means unlimited.
+	if opts.MaxRedirs == 0 {
+		cfg.MaxRedirs = DefaultMaxRedirs
+	} else {
+		cfg.MaxRedirs = opts.MaxRedirs
+	}
+
+	if opts.LimitRate != "" {
+		cfg.LimitRate, err = parseRateLimit(opts.LimitRate)
+		if err != nil {
+			return nil, fmt.Errorf("invalid limit-rate %s: %w", opts.LimitRate, err)
+		}
+	}
+
+	if opts.ContinueAt != "" && opts.ContinueAt != "-" {
+		if _, err = strconv.ParseInt(opts.ContinueAt, 10, 64); err != nil {
+			return nil, fmt.Errorf("invalid continue-at %s: expected a byte offset or \"-\"", opts.ContinueAt)
+		}
+	}
+
+	// -n/--netrc supplies credentials only when -u was not given.
+	if opts.Netrc && cfg.User == "" {
+		cfg.User, err = netrcCredentials(cfg.RequestURL.Hostname())
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	if opts.ProxyURL != "" {
 		cfg.ProxyURL, err = url.Parse(opts.ProxyURL)
 		if err != nil {
 			return nil, fmt.Errorf("invalid proxy URL specified %s: %w", opts.ProxyURL, err)
 		}
+	}
+
+	// --proxy-user overrides credentials embedded in --proxy.
+	if opts.ProxyUser != "" {
+		if cfg.ProxyURL == nil {
+			return nil, fmt.Errorf("--proxy-user requires --proxy")
+		}
+
+		user, pass, _ := strings.Cut(opts.ProxyUser, ":")
+		cfg.ProxyURL.User = url.UserPassword(user, pass)
 	}
 
 	if len(opts.ConnectTo) > 0 {
@@ -412,6 +522,90 @@ func ParseConfig(args []string) (cfg *Config, err error) {
 	}
 
 	return cfg, nil
+}
+
+// DefaultMaxRedirs is curl's default redirect limit for -L.
+const DefaultMaxRedirs = 50
+
+// parseRateLimit parses a --limit-rate value ("100k", "1M", "512") into bytes
+// per second.  Suffixes are k/K (1024), m/M (1024^2) and g/G (1024^3).
+func parseRateLimit(s string) (bytesPerSec int64, err error) {
+	mult := int64(1)
+	if len(s) > 0 {
+		switch s[len(s)-1] {
+		case 'k', 'K':
+			mult, s = 1024, s[:len(s)-1]
+		case 'm', 'M':
+			mult, s = 1024*1024, s[:len(s)-1]
+		case 'g', 'G':
+			mult, s = 1024*1024*1024, s[:len(s)-1]
+		}
+	}
+
+	n, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("expected a number with an optional k/M/G suffix")
+	}
+	if n <= 0 {
+		return 0, fmt.Errorf("rate must be positive")
+	}
+
+	return n * mult, nil
+}
+
+// netrcCredentials looks up the machine entry for host in ~/.netrc and returns
+// its "login:password" pair.  An absent file is not an error (curl treats it
+// the same way); a malformed file is.
+func netrcCredentials(host string) (creds string, err error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("cannot locate home directory for --netrc: %w", err)
+	}
+
+	b, err := os.ReadFile(filepath.Join(home, ".netrc"))
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return "", nil
+		}
+
+		return "", fmt.Errorf("cannot read ~/.netrc: %w", err)
+	}
+
+	fields := strings.Fields(string(b))
+	var login, password string
+	matched := false
+	// Entries are "machine HOST login USER password PASS", optionally followed
+	// by a "default" catch-all.  Tokens are consumed in order.
+	for i := 0; i < len(fields); i++ {
+		switch fields[i] {
+		case "machine":
+			if i+1 >= len(fields) {
+				return "", fmt.Errorf("malformed ~/.netrc: machine without a host")
+			}
+			matched = fields[i+1] == host
+			login, password = "", ""
+			i++
+		case "default":
+			matched = true
+			login, password = "", ""
+		case "login":
+			if i+1 < len(fields) && matched {
+				login = fields[i+1]
+			}
+			i++
+		case "password":
+			if i+1 < len(fields) && matched {
+				password = fields[i+1]
+			}
+			i++
+		}
+	}
+
+	if login == "" && !matched {
+		return "", nil
+	}
+
+	return login + ":" + password, nil
 }
 
 // getCipherSuiteByName tries to get the cipher suite by its name. Returns 0
