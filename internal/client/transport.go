@@ -187,18 +187,18 @@ var _ http.RoundTripper = (*uTransport)(nil)
 
 // RoundTrip implements http.RoundTripper for *uTransport.
 func (t *uTransport) RoundTrip(r *http.Request) (resp *http.Response, err error) {
-	scheme := r.URL.Scheme
-	if scheme != "https" {
+	if r.URL.Scheme == "https" {
+		resp, err = t.roundTripTLS(r)
+	} else {
 		// Plain HTTP: use the default transport path.
-		return t.httpBaseRoundTrip(r)
+		resp, err = t.httpBaseRoundTrip(r)
 	}
-
-	resp, err = t.roundTripTLS(r)
 	if err != nil {
 		return nil, err
 	}
 
-	// -L/--location: follow redirects on the TLS path as well.
+	// -L/--location: curl follows redirects for plain HTTP too, so this must
+	// not sit inside the TLS branch.
 	if cfg := t.d.cfg; cfg.Location && resp.StatusCode >= 300 && resp.StatusCode < 400 {
 		return followRedirects(t, r, resp)
 	}
