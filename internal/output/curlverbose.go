@@ -23,6 +23,27 @@ func (o *Output) CurlInfo(format string, args ...any) {
 	}
 }
 
+// curlProto returns the protocol token curl prints: "HTTP/2" for HTTP/2 (curl
+// omits the minor version there), otherwise the wire proto string untouched.
+func curlProto(proto string, major int) string {
+	if major == 2 {
+		return "HTTP/2"
+	}
+
+	return proto
+}
+
+// curlHeaderName returns a header name as curl prints it: h2 header names are
+// lowercase on the wire and curl echoes them lowercase; h1 keeps the case it
+// put on the wire.
+func curlHeaderName(name string, major int) string {
+	if major == 2 {
+		return strings.ToLower(name)
+	}
+
+	return name
+}
+
 // CurlRequest writes the request in "> " format (curl -v).  Includes the
 // request line, headers in wire order and the terminating "> " blank line.
 func (o *Output) CurlRequest(req *http.Request, headerOrder []string) {
@@ -35,8 +56,8 @@ func (o *Output) CurlRequest(req *http.Request, headerOrder []string) {
 	}
 
 	path := req.URL.RequestURI()
-	write("> %s %s %s\n", req.Method, path, req.Proto)
-	write("> Host: %s\n", req.Host)
+	write("> %s %s %s\n", req.Method, path, curlProto(req.Proto, req.ProtoMajor))
+	write("> %s: %s\n", curlHeaderName("Host", req.ProtoMajor), req.Host)
 
 	// Headers in the given wire order first, then whatever else the request
 	// carries (alphabetically — deterministic).
@@ -48,7 +69,7 @@ func (o *Output) CurlRequest(req *http.Request, headerOrder []string) {
 			continue
 		}
 		seen[strings.ToLower(name)] = true
-		write("> %s: %s\n", name, strings.TrimSpace(value))
+		write("> %s: %s\n", curlHeaderName(name, req.ProtoMajor), strings.TrimSpace(value))
 	}
 	rest := map[string][]string{}
 	for name, vals := range req.Header {
@@ -57,7 +78,7 @@ func (o *Output) CurlRequest(req *http.Request, headerOrder []string) {
 		}
 	}
 	for _, name := range sortedHeaderNames(rest) {
-		write("> %s: %s\n", name, rest[name][0])
+		write("> %s: %s\n", curlHeaderName(name, req.ProtoMajor), rest[name][0])
 	}
 
 	write("> \n")
@@ -74,7 +95,7 @@ func (o *Output) CurlResponse(resp *http.Response) {
 		_, _ = o.logFileWriter.WriteString(fmt.Sprintf(format, args...))
 	}
 
-	write("< %s %s\n", resp.Proto, resp.Status)
+	write("< %s %s\n", curlProto(resp.Proto, resp.ProtoMajor), resp.Status)
 	for _, name := range sortedHeaderNames(resp.Header) {
 		// ":status" is folded into the status line above; skip pseudo-headers
 		// like curl does.
@@ -82,7 +103,7 @@ func (o *Output) CurlResponse(resp *http.Response) {
 			continue
 		}
 		for _, v := range resp.Header[name] {
-			write("< %s: %s\n", name, v)
+			write("< %s: %s\n", curlHeaderName(name, resp.ProtoMajor), v)
 		}
 	}
 	write("< \n")
